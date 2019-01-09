@@ -25,8 +25,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="?attr/actionBarSize"
                     android:background="?attr/colorPrimary"
-                    app:title="@{mainViewModel.toolbarTitle}"
-                    app:subtitle="@{mainViewModel.toolbarSubtitle}"
+                    app:title="@{mainViewModel.currentFolder}"
+                    app:subtitle="@{mainViewModel.currentFolderInfo}"
                     app:popupTheme="@style/AppTheme.PopupOverlay"/>
 
         </android.support.design.widget.AppBarLayout>
@@ -41,7 +41,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="bottom|end"
                 android:layout_margin="@dimen/fab_margin"
-                app:srcCompat="@android:drawable/ic_dialog_email"/>
+                app:srcCompat="@android:drawable/ic_dialog_info"/>
 
     </android.support.design.widget.CoordinatorLayout>
 </layout>
