@@ -13,9 +13,6 @@ import android.support.v7.widget.LinearLayoutManager
 import android.view.*
 import com.prettygoodcomputing.a4.databinding.ActivityMainBinding
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.android.synthetic.main.app_bar_main.*
-import kotlinx.android.synthetic.main.app_bar_main.view.*
-import kotlinx.android.synthetic.main.content_main.view.*
 import pub.devrel.easypermissions.EasyPermissions
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -30,19 +27,19 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setUpRecyclerView()
         setUpFloatingActionButton()
         setUpNavigationDrawer()
+        setUpEasyPermissions()
     }
 
     private fun setUpDataBinding() {
-//        setContentView(R.layout.activity_main)
-//        setSupportActionBar(toolbar)
-        setSupportActionBar(binding.root.toolbar)
+        setSupportActionBar(binding.toolbar)
         binding.setLifecycleOwner(this)
         binding.mainViewModel = mainViewModel
     }
 
     private fun setUpRecyclerView() {
-        binding.root.recycler_view.layoutManager = LinearLayoutManager(this)
-        binding.root.recycler_view.setHasFixedSize(true)
+
+        binding.recyclerView.layoutManager = LinearLayoutManager(this)
+        binding.recyclerView.setHasFixedSize(true)
 
         val recyclerViewGestureListener = object: GestureDetector.SimpleOnGestureListener() {
 
@@ -61,13 +58,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         // setup a gesture detector for the recycler view to allow swipe left / right to switch folder
         val recyclerViewGestureDetector = GestureDetector(this, recyclerViewGestureListener)
-        binding.root.recycler_view.setOnTouchListener { v, event ->
+        binding.recyclerView.setOnTouchListener { v, event ->
             recyclerViewGestureDetector.onTouchEvent(event)
         }
 
         // setup the content of the recyucler view
         val fileItemAdapter = FileItemAdapter()
-        binding.root.recycler_view.adapter = fileItemAdapter
+        binding.recyclerView.adapter = fileItemAdapter
         fileItemAdapter.setOnItemClickListener(object : FileItemAdapter.OnItemClickListener {
             override fun onItemClick(fileItem: FileItem) {
                 mainViewModel.onClickFileItem(fileItem)
@@ -102,7 +99,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     //    @AfterPermissionGranted(123)
-    private fun requestEasyPermissions() {
+    private fun setUpEasyPermissions() {
         val perms = arrayOf(
             Manifest.permission.INTERNET,
             Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN,
@@ -125,7 +122,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onResume() {
         super.onResume()
-        binding.root.toolbar.title = mainViewModel.getCurrentFolder()
+        binding.toolbar.title = mainViewModel.getCurrentFolder()
     }
 
     override fun onBackPressed() {
