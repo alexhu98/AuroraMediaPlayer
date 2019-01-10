@@ -2,6 +2,7 @@ package com.prettygoodcomputing.a4
 
 import android.Manifest
 import android.arch.lifecycle.Observer
+import android.content.Intent
 import android.databinding.DataBindingUtil
 import android.os.Bundle
 import android.support.design.widget.Snackbar
@@ -28,6 +29,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setUpFloatingActionButton()
         setUpNavigationDrawer()
         setUpEasyPermissions()
+
+        startForegroundService(Intent(this, PlayerService::class.java))
     }
 
     private fun setUpDataBinding() {

@@ -9,45 +9,34 @@ import android.arch.lifecycle.MutableLiveData
 class MainViewModel(application: Application): AndroidViewModel(application) {
 
     private val repository = AppRepository(application)
-    private val allFileItems = repository.getFileItems()
-    private val currentFileItems = MediatorLiveData<List<FileItem>>()
 
-    val currentFolder = MutableLiveData<String>()
-    val currentFolderInfo = MutableLiveData<String>()
-    val currentOrderBy = MutableLiveData<String>()
-
-    init {
-        setCurrentFolder("")
-        setCurrentFolderInfo("")
-        setCurrentOrderBy(FileItem.FIELD_NAME)
-        queryFileItems("/x", FileItem.FIELD_NAME)
-        currentFileItems.addSource(allFileItems) {
-            currentFileItems.value = rearrangeFileItems(it)
-        }
-    }
+    val currentFolder by lazy { repository.currentFolder }
+    val currentFolderInfo by lazy { repository.currentFolderInfo }
+    val currentOrderBy by lazy { repository.currentOrderBy }
+    val currentFileItems by lazy { repository.currentFileItems }
 
     fun getCurrentFolder(): String {
-        return currentFolder.value ?: ""
+        return repository.getCurrentFolder()
     }
 
     fun setCurrentFolder(folder: String) {
-        currentFolder.value = folder
+        return repository.setCurrentFolder(folder)
     }
 
     fun getCurrentFolderInfo(): String {
-        return currentFolderInfo.value ?: ""
+        return repository.getCurrentFolderInfo()
     }
 
     fun setCurrentFolderInfo(folderInfo: String) {
-        currentFolderInfo.value = folderInfo
+        return repository.setCurrentFolder(folderInfo)
     }
 
     fun getCurrentOrderBy(): String {
-        return currentOrderBy.value ?: ""
+        return repository.getCurrentOrderBy()
     }
 
     fun setCurrentOrderBy(orderBy: String) {
-        currentOrderBy.value = orderBy
+        repository.setCurrentOrderBy(orderBy)
     }
 
     fun insert(fileItem: FileItem) {
@@ -71,50 +60,15 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
     }
 
     fun queryFileItems(folder: String, orderBy: String) {
-        if (getCurrentFolder() != folder || getCurrentOrderBy() != orderBy) {
-            setCurrentFolder(folder)
-            setCurrentOrderBy(orderBy)
-            allFileItems.value?.let {
-                currentFileItems.value = rearrangeFileItems(it)
-            }
-        }
-    }
-
-    private fun rearrangeFileItems(all: List<FileItem>?): List<FileItem> {
-        val comparator: Comparator<FileItem> = when (getCurrentOrderBy()) {
-            FileItem.FIELD_NAME -> compareBy({ it.name }, { it.fileSize })
-            FileItem.FIELD_FILE_SIZE -> compareBy({ -it.fileSize }, { it.name })
-            FileItem.FIELD_LAST_MODIFIED -> compareBy({ -it.lastModified }, { it.name })
-            else -> compareBy({ it.name }, { it.fileSize })
-        }
-        val result = all
-            ?.filter{ it.folder == getCurrentFolder() }
-            ?.sortedWith(comparator)
-            ?: listOf()
-        return result
+        repository.queryFileItems(folder, orderBy)
     }
 
     fun switchFolder(direction: Int) {
-        val newFolder = if (getCurrentFolder() == "/t") "/x" else "/t"
-        setCurrentFolderInfo("")
-        queryFileItems(newFolder, FileItem.FIELD_NAME)
+        repository.switchFolder(direction)
     }
 
     fun calculateFolderInfo() {
-        val fileItems = currentFileItems.value
-        var folderInfo = when (fileItems == null) {
-            true -> ""
-            false -> {
-                var count = 0
-                var totalSize = 0L
-                fileItems.forEach {
-                    count++
-                    totalSize += it.fileSize
-                }
-                "$count files, $totalSize bytes"
-            }
-        }
-        setCurrentFolderInfo(folderInfo)
+        repository.calculateFolderInfo()
     }
 
     fun onClickFileItem(fileItem: FileItem) {
