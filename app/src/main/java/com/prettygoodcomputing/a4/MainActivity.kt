@@ -20,6 +20,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private val binding by lazy { DataBindingUtil.setContentView<ActivityMainBinding>(this, R.layout.activity_main) }
     private val mainViewModel by lazy { MainViewModel(application) }
+    private val repository by lazy { mainViewModel.repository }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +38,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setSupportActionBar(binding.toolbar)
         binding.setLifecycleOwner(this)
         binding.mainViewModel = mainViewModel
+        binding.repository = repository
     }
 
     private fun setUpRecyclerView() {
@@ -78,9 +80,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
         })
 
-        mainViewModel.getFileItems().observe(this, Observer<List<FileItem>> {
+        repository.getCurrentFileItems().observe(this, Observer<List<FileItem>> {
             fileItemAdapter.submitList(it)
-            mainViewModel.calculateFolderInfo()
+            repository.calculateFolderInfo()
         })
     }
 
@@ -125,7 +127,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onResume() {
         super.onResume()
-        binding.toolbar.title = mainViewModel.getCurrentFolder()
+        binding.toolbar.title = repository.getCurrentFolder()
     }
 
     override fun onBackPressed() {
@@ -157,16 +159,16 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         when (item.itemId) {
             R.id.nav_camera -> {
                 // Handle the camera action
-                mainViewModel.queryFileItems("/x", FileItem.FIELD_NAME)
+                repository.queryFileItems("/x", FileItem.FIELD_NAME)
             }
             R.id.nav_gallery -> {
-                mainViewModel.queryFileItems("/x", FileItem.FIELD_FILE_SIZE)
+                repository.queryFileItems("/x", FileItem.FIELD_FILE_SIZE)
             }
             R.id.nav_slideshow -> {
-                mainViewModel.queryFileItems("/x", FileItem.FIELD_LAST_MODIFIED)
+                repository.queryFileItems("/x", FileItem.FIELD_LAST_MODIFIED)
             }
             R.id.nav_manage -> {
-                mainViewModel.queryFileItems("/t", FileItem.FIELD_NAME)
+                repository.queryFileItems("/t", FileItem.FIELD_NAME)
             }
             R.id.nav_share -> {
 

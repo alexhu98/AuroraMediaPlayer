@@ -11,26 +11,24 @@ import android.view.View
 import android.view.Window
 import java.util.*
 import android.provider.Settings.SettingNotFoundException
-//import com.crashlytics.android.Crashlytics
+import com.crashlytics.android.Crashlytics
 
 
 class App: Application {
 
     private val TAG = "App"
 
-    constructor(): super() {
-    }
+    constructor(): super()
 
     override fun onCreate() {
         super.onCreate()
         sApplication = this
-        sRepository = AppRepository(this)
     }
 
     companion object {
 
         private lateinit var sApplication: Application
-        private lateinit var sRepository: AppRepository
+        private val sRepository by lazy { AppRepository(sApplication) }
 
 
         @JvmStatic
@@ -64,7 +62,7 @@ class App: Application {
                 Settings.System.putInt(getContext().contentResolver, Settings.System.SCREEN_BRIGHTNESS, brightness)
             }
             catch (e: Exception) {
-//                Crashlytics.logException(e)
+                Crashlytics.logException(e)
                 e.printStackTrace()
             }
         }
@@ -73,7 +71,7 @@ class App: Application {
             try {
                 return Settings.System.getInt(getContext().contentResolver, Settings.System.SCREEN_BRIGHTNESS)
             } catch (e: Exception) {
-//                Crashlytics.logException(e)
+                Crashlytics.logException(e)
                 e.printStackTrace()
             }
             return -1

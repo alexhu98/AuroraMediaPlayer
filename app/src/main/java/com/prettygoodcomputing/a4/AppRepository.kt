@@ -8,6 +8,8 @@ import android.os.AsyncTask
 
 class AppRepository(val application: Application) {
 
+    private val TAG = "AppRepository"
+
     val currentFolder = MutableLiveData<String>()
     val currentFolderInfo = MutableLiveData<String>()
     val currentOrderBy = MutableLiveData<String>()
@@ -17,14 +19,24 @@ class AppRepository(val application: Application) {
     private val allFileItems = fileItemDao.getFileItems()
 
     init {
-        setCurrentFolder("")
-        setCurrentFolderInfo("")
-        setCurrentOrderBy(FileItem.FIELD_NAME)
-        queryFileItems("/x", FileItem.FIELD_NAME)
-        currentFileItems.addSource(allFileItems) {
-            currentFileItems.value = rearrangeFileItems(it)
+        currentFolder.observeForever{
+            rearrangeAndCalculate()
         }
+        currentOrderBy.observeForever {
+            rearrangeAndCalculate()
+        }
+        allFileItems.observeForever{
+            rearrangeAndCalculate()
+        }
+        queryFileItems("/x", FileItem.FIELD_NAME)
     }
+
+
+    private fun rearrangeAndCalculate() {
+        currentFileItems.value = rearrangeFileItems(allFileItems.value)
+        calculateFolderInfo()
+    }
+
 
     fun getCurrentFolder(): String {
         return currentFolder.value ?: ""
@@ -39,7 +51,9 @@ class AppRepository(val application: Application) {
     }
 
     fun setCurrentFolderInfo(folderInfo: String) {
+        Logger.enter(TAG, "setCurrentFolderInfo = $folderInfo")
         currentFolderInfo.value = folderInfo
+        Logger.exit(TAG, "setCurrentFolderInfo = $folderInfo")
     }
 
     fun getCurrentOrderBy(): String {
@@ -54,9 +68,6 @@ class AppRepository(val application: Application) {
         if (getCurrentFolder() != folder || getCurrentOrderBy() != orderBy) {
             setCurrentFolder(folder)
             setCurrentOrderBy(orderBy)
-            allFileItems.value?.let {
-                currentFileItems.value = rearrangeFileItems(it)
-            }
         }
     }
 
@@ -67,6 +78,9 @@ class AppRepository(val application: Application) {
             FileItem.FIELD_LAST_MODIFIED -> compareBy({ -it.lastModified }, { it.name })
             else -> compareBy({ it.name }, { it.fileSize })
         }
+        if (all == null) {
+            Logger.v(TAG, "rearrangeFileItems() allFileItems.value == null")
+        }
         val result = all
             ?.filter{ it.folder == getCurrentFolder() }
             ?.sortedWith(comparator)
@@ -74,16 +88,10 @@ class AppRepository(val application: Application) {
         return result
     }
 
-    fun switchFolder(direction: Int) {
-        val newFolder = if (getCurrentFolder() == "/t") "/x" else "/t"
-        setCurrentFolderInfo("")
-        queryFileItems(newFolder, FileItem.FIELD_NAME)
-    }
-
     fun calculateFolderInfo() {
         val fileItems = currentFileItems.value
         var folderInfo = when (fileItems == null) {
-            true -> ""
+            true -> "calculateFolderInfo() fileItems == null"
             false -> {
                 var count = 0
                 var totalSize = 0L
@@ -97,8 +105,12 @@ class AppRepository(val application: Application) {
         setCurrentFolderInfo(folderInfo)
     }
 
-    fun getFileItems(): LiveData<List<FileItem>> {
+    fun getAllFileItems(): LiveData<List<FileItem>> {
         return allFileItems
+    }
+
+    fun getCurrentFileItems(): LiveData<List<FileItem>> {
+        return currentFileItems
     }
 
     fun insert(fileItem: FileItem) {

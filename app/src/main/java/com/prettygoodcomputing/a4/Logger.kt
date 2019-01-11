@@ -3,7 +3,7 @@ package com.prettygoodcomputing.a4
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
-//import com.crashlytics.android.Crashlytics
+import com.crashlytics.android.Crashlytics
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -50,7 +50,7 @@ object Logger {
                 IllegalStateException("$tag Logger.exit() *** enterTimeStack.size == 0")
             }
             catch (ex: Throwable) {
-//                Crashlytics.logException(ex)
+                Crashlytics.logException(ex)
             }
         }
         else {

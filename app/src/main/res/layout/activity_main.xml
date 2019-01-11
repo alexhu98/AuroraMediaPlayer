@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layout>
     <data>
-        <variable name="mainViewModel"
-                  type="com.prettygoodcomputing.a4.MainViewModel"
-        />
+        <variable name="mainViewModel" type="com.prettygoodcomputing.a4.MainViewModel" />
+        <variable name="repository" type="com.prettygoodcomputing.a4.AppRepository" />
     </data>
 
     <android.support.v4.widget.DrawerLayout
@@ -32,8 +31,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="?attr/actionBarSize"
                         android:background="?attr/colorPrimary"
-                        app:title="@{mainViewModel.currentFolder}"
-                        app:subtitle="@{mainViewModel.currentFolderInfo}"
+                        app:title="@{repository.currentFolder}"
+                        app:subtitle="@{repository.currentFolderInfo}"
                         app:popupTheme="@style/AppTheme.PopupOverlay"/>
 
             </android.support.design.widget.AppBarLayout>
@@ -41,9 +40,7 @@
             <android.support.constraint.ConstraintLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    app:layout_behavior="@string/appbar_scrolling_view_behavior"
-                    tools:showIn="@layout/app_bar_main"
-                    tools:context=".MainActivity">
+                    app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
                 <android.support.v7.widget.RecyclerView
                         android:id="@+id/recycler_view"

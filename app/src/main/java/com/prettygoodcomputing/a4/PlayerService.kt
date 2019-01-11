@@ -141,36 +141,7 @@ class PlayerService : MediaBrowserServiceCompat() {
         }
         else {
             val repository = App.getAppRepository()
-            val fileItems = repository.currentFileItems.value ?: listOf()
-
-//            val fileItems = listOf(
-//                FileItem(name = "a1.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L),
-//                FileItem(name = "b1.mp4", folder = "/x", fileSize = 1232L, lastModified = 1234562L),
-//                FileItem(name = "c1.mp4", folder = "/x", fileSize = 1233L, lastModified = 1234563L),
-//                FileItem(name = "d1.mp4", folder = "/x", fileSize = 1234L, lastModified = 1234564L),
-//                FileItem(name = "e1.mp4", folder = "/t", fileSize = 1235L, lastModified = 1234565L),
-//                FileItem(name = "f1.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L),
-//                FileItem(name = "g1.mp4", folder = "/x", fileSize = 1232L, lastModified = 1234562L),
-//                FileItem(name = "h1.mp4", folder = "/x", fileSize = 1233L, lastModified = 1234563L),
-//                FileItem(name = "i1.mp4", folder = "/x", fileSize = 1234L, lastModified = 1234564L),
-//                FileItem(name = "j1.mp4", folder = "/t", fileSize = 1235L, lastModified = 1234565L),
-//                FileItem(name = "k1.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L),
-//                FileItem(name = "l1.mp4", folder = "/x", fileSize = 1232L, lastModified = 1234562L),
-//                FileItem(name = "m1.mp4", folder = "/x", fileSize = 1233L, lastModified = 1234563L),
-//                FileItem(name = "n1.mp4", folder = "/x", fileSize = 1234L, lastModified = 1234564L),
-//                FileItem(name = "o1.mp4", folder = "/t", fileSize = 1235L, lastModified = 1234565L),
-//                FileItem(name = "p1.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L),
-//                FileItem(name = "q1.mp4", folder = "/x", fileSize = 1232L, lastModified = 1234562L),
-//                FileItem(name = "r1.mp4", folder = "/x", fileSize = 1233L, lastModified = 1234563L),
-//                FileItem(name = "s1.mp4", folder = "/x", fileSize = 1234L, lastModified = 1234564L),
-//                FileItem(name = "t1.mp4", folder = "/t", fileSize = 1235L, lastModified = 1234565L),
-//                FileItem(name = "u1.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L),
-//                FileItem(name = "v1.mp4", folder = "/x", fileSize = 1232L, lastModified = 1234562L),
-//                FileItem(name = "w1.mp4", folder = "/x", fileSize = 1233L, lastModified = 1234563L),
-//                FileItem(name = "x1.mp4", folder = "/x", fileSize = 1234L, lastModified = 1234564L),
-//                FileItem(name = "y1.mp4", folder = "/t", fileSize = 1235L, lastModified = 1234565L),
-//                FileItem(name = "z1.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L)
-//            )
+            val fileItems = repository.getCurrentFileItems().value ?: listOf()
             fileItems.forEachIndexed { index, fileItem ->
                 val metadata = MediaMetadataCompat.Builder()
                     .putString(MediaMetadataCompat.METADATA_KEY_TITLE, fileItem.name)
