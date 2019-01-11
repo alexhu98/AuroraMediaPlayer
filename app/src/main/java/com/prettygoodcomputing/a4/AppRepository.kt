@@ -19,56 +19,56 @@ class AppRepository(val application: Application) {
     private val allFileItems = fileItemDao.getFileItems()
 
     init {
-        currentFolder.observeForever{
-            rearrangeAndCalculate()
-        }
-        currentOrderBy.observeForever {
-            rearrangeAndCalculate()
-        }
-        allFileItems.observeForever{
+        currentFileItems.addSource(allFileItems) {
             rearrangeAndCalculate()
         }
         queryFileItems("/x", FileItem.FIELD_NAME)
     }
 
-
-    private fun rearrangeAndCalculate() {
-        currentFileItems.value = rearrangeFileItems(allFileItems.value)
-        calculateFolderInfo()
-    }
-
-
+    @Synchronized
     fun getCurrentFolder(): String {
         return currentFolder.value ?: ""
     }
 
+    @Synchronized
     fun setCurrentFolder(folder: String) {
         currentFolder.value = folder
     }
 
+    @Synchronized
     fun getCurrentFolderInfo(): String {
         return currentFolderInfo.value ?: ""
     }
 
+    @Synchronized
     fun setCurrentFolderInfo(folderInfo: String) {
         Logger.enter(TAG, "setCurrentFolderInfo = $folderInfo")
         currentFolderInfo.value = folderInfo
         Logger.exit(TAG, "setCurrentFolderInfo = $folderInfo")
     }
 
+    @Synchronized
     fun getCurrentOrderBy(): String {
         return currentOrderBy.value ?: ""
     }
 
+    @Synchronized
     fun setCurrentOrderBy(orderBy: String) {
         currentOrderBy.value = orderBy
     }
 
+    @Synchronized
     fun queryFileItems(folder: String, orderBy: String) {
         if (getCurrentFolder() != folder || getCurrentOrderBy() != orderBy) {
             setCurrentFolder(folder)
             setCurrentOrderBy(orderBy)
+            rearrangeAndCalculate()
         }
+    }
+
+    private fun rearrangeAndCalculate() {
+        currentFileItems.value = rearrangeFileItems(allFileItems.value)
+        calculateFolderInfo()
     }
 
     private fun rearrangeFileItems(all: List<FileItem>?): List<FileItem> {
@@ -88,10 +88,10 @@ class AppRepository(val application: Application) {
         return result
     }
 
-    fun calculateFolderInfo() {
+    private fun calculateFolderInfo() {
         val fileItems = currentFileItems.value
         var folderInfo = when (fileItems == null) {
-            true -> "calculateFolderInfo() fileItems == null"
+            true -> ""
             false -> {
                 var count = 0
                 var totalSize = 0L

@@ -30,7 +30,6 @@ class App: Application {
         private lateinit var sApplication: Application
         private val sRepository by lazy { AppRepository(sApplication) }
 
-
         @JvmStatic
         fun getApplication(): Application? {
             return sApplication

@@ -1,11 +1,36 @@
 <resources>
     <string name="app_name">A4</string>
-    <string name="navigation_drawer_open">Open navigation drawer</string>
-    <string name="navigation_drawer_close">Close navigation drawer</string>
-    <string name="nav_header_title">Android Studio</string>
-    <string name="nav_header_subtitle">android.studio@android.com</string>
-    <string name="nav_header_desc">Navigation header</string>
+    <string name="auto_play">Auto Play:</string>
+    <string name="auto_play_cancel">Cancel</string>
+    <string name="list_title"></string>
+    <string name="list_subtitle">%d, %s, %s Free</string>
+    <string name="action_bluetooth">Bluetooth</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_sort">Sort</string>
+    <string name="action_sort_by_name">Sort by Name</string>
+    <string name="action_sort_by_size">Sort by Size</string>
+    <string name="action_sort_by_date">Sort by Date</string>
+    <string name="action_delete_all_finished">Delete All Finished</string>
+    <string name="action_flag">Flag</string>
+    <string name="action_mark_as_finished">Mark as Finished</string>
+    <string name="action_mark_as_unfinished">Mark as Unfinished</string>
+    <string name="action_move_down">Move Down</string>
+    <string name="action_move_up">Move Up</string>
+    <string name="action_refresh">Refresh</string>
     <string name="action_settings">Settings</string>
+    <string name="channel_playing">Playing</string>
+    <string name="channel_playlist">Playlist</string>
+    <string name="deleted_with_error">Deleted %d, %s, [%d]</string>
+    <string name="deleted_without_error">Deleted %d, %s, %s Free</string>
+    <string name="free_space">%s Free</string>
+    <string name="media_play">Play</string>
+    <string name="media_pause">Pause</string>
+    <string name="media_paused">Paused</string>
+    <string name="media_stop">Stop</string>
+    <string name="menu_divider_thick">\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501</string>
+    <string name="menu_divider">\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF</string>
+    <string name="menu_divider_short">\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA</string>
+    <string name="playlist">Playlist</string>
     <string name="progress_0">\u2007</string>
     <string name="progress_1">\u25CB</string>
     <string name="progress_25">\u25D4</string>
@@ -14,4 +39,105 @@
     <string name="progress_100">\u25CF</string>
     <string name="progress_none">\u2007</string>
     <string name="progress_current">\u2023</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="nav_header_title">Android Studio</string>
+    <string name="nav_header_subtitle">android.studio@android.com</string>
+    <string name="nav_header_desc">Navigation header</string>
+    <string name="nav_folders">Folders</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_exit">Exit</string>
+    <string name="title_activity_folders">Folders</string>
+    <string name="title_activity_settings">Settings</string>
+
+    <!-- Strings related to Settings -->
+
+    <string name="pref_header_general">General</string>
+
+    <string name="pref_title_auto_play">Enable auto play</string>
+    <string name="pref_description_auto_play">Automatically play the last video</string>
+
+    <string name="pref_title_quiet_mode">Enable quiet mode</string>
+    <string name="pref_description_quiet_mode">Reduce volume when brightness level is low</string>
+
+    <string name="pref_title_push_to_background">Enable push to background</string>
+    <string name="pref_description_push_to_background">Push video to background when leaving the player</string>
+
+    <string name="pref_title_landscape_orientation">Enable landscape orientation</string>
+    <string name="pref_description_landscape_orientation">Lock orientation to landscape at night</string>
+
+    <string name="pref_title_bluetooth_async_name">Bluetooth Async Audio Device</string>
+    <string name="pref_description_bluetooth_async_name">Bluetooth device for async audio</string>
+
+    <string name="pref_title_bluetooth_async_offset">Bluetooth Async Audio Offset</string>
+    <string name="pref_description_bluetooth_async_offset">Audio offset in milliseconds</string>
+
+    <!-- Example General settings -->
+
+    <string name="pref_title_social_recommendations">Enable social recommendations</string>
+    <string name="pref_description_social_recommendations">Recommendations for people to contact
+        based on your message history
+    </string>
+
+    <string name="pref_title_display_name">Display name</string>
+    <string name="pref_default_display_name">John Smith</string>
+
+    <string name="pref_title_add_friends_to_messages">Add friends to messages</string>
+    <string-array name="pref_example_list_titles">
+        <item>Always</item>
+        <item>When possible</item>
+        <item>Never</item>
+    </string-array>
+    <string-array name="pref_example_list_values">
+        <item>1</item>
+        <item>0</item>
+        <item>-1</item>
+    </string-array>
+
+    <!-- Example settings for Data & Sync -->
+    <string name="pref_header_data_sync">Data &amp; sync</string>
+
+    <string name="pref_title_sync_frequency">Sync frequency</string>
+    <string-array name="pref_sync_frequency_titles">
+        <item>15 minutes</item>
+        <item>30 minutes</item>
+        <item>1 hour</item>
+        <item>3 hours</item>
+        <item>6 hours</item>
+        <item>Never</item>
+    </string-array>
+    <string-array name="pref_sync_frequency_values">
+        <item>15</item>
+        <item>30</item>
+        <item>60</item>
+        <item>180</item>
+        <item>360</item>
+        <item>-1</item>
+    </string-array>
+
+    <string-array name="list_preference_entries">
+        <item>Entry 1</item>
+        <item>Entry 2</item>
+        <item>Entry 3</item>
+    </string-array>
+
+    <string-array name="list_preference_entry_values">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+
+    <string-array name="multi_select_list_preference_default_value"/>
+
+    <string name="pref_title_system_sync_settings">System sync settings</string>
+
+    <!-- Example settings for Notifications -->
+    <string name="pref_header_notifications">Notifications</string>
+
+    <string name="pref_title_new_message_notifications">New message notifications</string>
+
+    <string name="pref_title_ringtone">Ringtone</string>
+    <string name="pref_ringtone_silent">Silent</string>
+
+    <string name="pref_title_vibrate">Vibrate</string>
 </resources>

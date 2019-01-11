@@ -1,6 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#008577</color>
-    <color name="colorPrimaryDark">#00574B</color>
-    <color name="colorAccent">#D81B60</color>
+    <color name="app_background_color">#000000</color>
+    <color name="menu_background_color">#222222</color>
+    <color name="color_primary">#222222</color>
+    <color name="color_primary_dark">#111111</color>
+    <color name="color_accent">#AAAAAA</color>
+    <color name="drawer_text_background">#000000</color>
+    <color name="drawer_text_background_checked">#141414</color>
+    <color name="drawer_text_color">#FFFFFF</color>
+    <color name="drawer_text_color_checked">#FFFFFF</color>
+    <color name="info_text_color">#EEEEEE</color>
+    <color name="info_shadow_color">#000000</color>
+    <color name="opaque_menu_background">#181C18</color>
+    <color name="preferences_background_color">#111111</color>
+    <color name="selection_color">#141414</color>
+    <color name="text_color">#FFFFFF</color>
+    <color name="text_color_primary">#BBBBBB</color>
+    <color name="text_color_secondary">#AAAAAA</color>
+    <color name="text_error_color">#FFFF0000</color>
+
+    <color name="maybe_text_color">#00FF00</color>
+    <color name="fake_color">#0000FF</color>
 </resources>

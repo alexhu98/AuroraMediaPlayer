@@ -12,7 +12,6 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
 
     fun switchFolder(direction: Int) {
         val newFolder = if (repository.getCurrentFolder() == "/t") "/x" else "/t"
-        repository.setCurrentFolderInfo("")
         repository.queryFileItems(newFolder, FileItem.FIELD_NAME)
     }
 

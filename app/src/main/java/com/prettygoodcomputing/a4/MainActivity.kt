@@ -82,7 +82,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         repository.getCurrentFileItems().observe(this, Observer<List<FileItem>> {
             fileItemAdapter.submitList(it)
-            repository.calculateFolderInfo()
         })
     }
 
