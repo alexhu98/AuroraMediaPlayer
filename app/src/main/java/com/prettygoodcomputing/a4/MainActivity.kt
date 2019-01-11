@@ -18,9 +18,14 @@ import pub.devrel.easypermissions.EasyPermissions
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
+    private val REQUEST_NAVIGATE_FOLDERS = 100
+    private val REQUEST_NAVIGATE_SETTINGS = 101
+    private val REQUEST_PERMISSIONS = 102
+
     private val binding by lazy { DataBindingUtil.setContentView<ActivityMainBinding>(this, R.layout.activity_main) }
     private val mainViewModel by lazy { MainViewModel(application) }
     private val repository by lazy { mainViewModel.repository }
+    private val context = this
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,7 +74,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
 
         // setup a gesture detector for the recycler view to allow swipe left / right to switch folder
-        val recyclerViewGestureDetector = GestureDetector(this, recyclerViewGestureListener)
+        val recyclerViewGestureDetector = GestureDetector(context, recyclerViewGestureListener)
         binding.recyclerView.setOnTouchListener { v, event ->
             recyclerViewGestureDetector.onTouchEvent(event)
         }
@@ -116,7 +121,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN,
             Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.WAKE_LOCK, Manifest.permission.WRITE_SETTINGS)
-        if (EasyPermissions.hasPermissions(this, *perms)) {
+        if (EasyPermissions.hasPermissions(context, *perms)) {
 
         }
         else {
@@ -167,10 +172,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 repository.queryFileItems("/x", FileItem.FIELD_NAME)
             }
             R.id.nav_settings -> {
-                repository.queryFileItems("/x", FileItem.FIELD_FILE_SIZE)
+                startActivityForResult(Intent(context, SettingsActivity::class.java), REQUEST_NAVIGATE_SETTINGS)
             }
             R.id.nav_exit -> {
-                repository.queryFileItems("/t", FileItem.FIELD_NAME)
+                finish()
             }
         }
         drawer_layout.closeDrawer(GravityCompat.START)
