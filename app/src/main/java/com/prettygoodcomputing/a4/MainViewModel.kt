@@ -8,7 +8,7 @@ import android.arch.lifecycle.MutableLiveData
 
 class MainViewModel(application: Application): AndroidViewModel(application) {
 
-    private val repository = AppRepository(application)
+    private val repository by lazy { App.getAppRepository() }
 
     val currentFolder by lazy { repository.currentFolder }
     val currentFolderInfo by lazy { repository.currentFolderInfo }
