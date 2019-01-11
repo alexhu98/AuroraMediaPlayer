@@ -166,10 +166,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
+        closeDrawer()
         // Handle navigation view item clicks here.
         when (item.itemId) {
             R.id.nav_folders -> {
-                repository.queryFileItems("/x", FileItem.FIELD_NAME)
+                startActivityForResult(Intent(context, SelectedFoldersActivity::class.java), REQUEST_NAVIGATE_FOLDERS)
             }
             R.id.nav_settings -> {
                 startActivityForResult(Intent(context, SettingsActivity::class.java), REQUEST_NAVIGATE_SETTINGS)
@@ -178,7 +179,20 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 finish()
             }
         }
-        drawer_layout.closeDrawer(GravityCompat.START)
         return true
+    }
+
+    private fun closeDrawer(): Boolean {
+        return when {
+            binding.drawerLayout.isDrawerOpen(GravityCompat.START) -> {
+                binding.drawerLayout.closeDrawer(GravityCompat.START)
+                true
+            }
+            drawer_layout.isDrawerOpen(GravityCompat.END) -> {
+                binding.drawerLayout.closeDrawer(GravityCompat.END)
+                true
+            }
+            else -> false
+        }
     }
 }

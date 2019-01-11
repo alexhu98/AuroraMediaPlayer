@@ -54,6 +54,15 @@
                     android:name="android.support.PARENT_ACTIVITY"
                     android:value="com.prettygoodcomputing.a4.MainActivity"/>
         </activity>
+        <activity
+                android:name=".SelectedFoldersActivity"
+                android:label="@string/title_activity_selected_folders"
+                android:parentActivityName=".MainActivity"
+                android:theme="@style/AppTheme.NoActionBar">
+            <meta-data
+                    android:name="android.support.PARENT_ACTIVITY"
+                    android:value="com.prettygoodcomputing.a4.MainActivity"/>
+        </activity>
     </application>
 
 </manifest>
