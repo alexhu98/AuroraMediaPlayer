@@ -22,7 +22,7 @@ class FileItemAdapter: ListAdapter<FileItem, FileItemAdapter.ViewHolder>(DIFF_CA
     override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
         val fileItem = getItem(position)
         viewHolder.nameView.text = fileItem.name
-        viewHolder.infoView.text = fileItem.fileSize.toString()
+        viewHolder.infoView.text = fileItem.fileSize.toString() + "\n12:34 34:56"
         viewHolder.progressView.text = "*"
     }
 

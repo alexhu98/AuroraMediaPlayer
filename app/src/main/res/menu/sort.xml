@@ -1,0 +1,25 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+      xmlns:app="http://schemas.android.com/apk/res-auto"
+      xmlns:tools="http://schemas.android.com/tools"
+      tools:context="com.prettygoodcomputing.k4.MainActivity">
+
+    <item
+        android:id="@+id/action_sort_by_name"
+        android:icon="@drawable/sort_by_name"
+        android:orderInCategory="301"
+        android:title="@string/action_sort_by_name"
+        app:showAsAction="never"/>
+    <item
+        android:id="@+id/action_sort_by_size"
+        android:icon="@drawable/sort_by_size"
+        android:orderInCategory="302"
+        android:title="@string/action_sort_by_size"
+        app:showAsAction="never"/>
+    <item
+        android:id="@+id/action_sort_by_date"
+        android:icon="@drawable/sort_by_size"
+        android:orderInCategory="303"
+        android:title="@string/action_sort_by_date"
+        app:showAsAction="never"/>
+
+</menu>

@@ -1,8 +1,33 @@
-<?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
-      xmlns:app="http://schemas.android.com/apk/res-auto">
-    <item android:id="@+id/action_settings"
-          android:title="@string/action_settings"
-          android:orderInCategory="100"
-          app:showAsAction="never"/>
+      xmlns:app="http://schemas.android.com/apk/res-auto"
+      xmlns:tools="http://schemas.android.com/tools"
+      tools:context="com.prettygoodcomputing.k4.MainActivity">
+
+    <item
+        android:id="@+id/action_bluetooth"
+        android:icon="@android:drawable/stat_sys_data_bluetooth"
+        android:orderInCategory="101"
+        android:title="@string/action_bluetooth"
+        app:showAsAction="always"/>
+
+    <item
+        android:id="@+id/action_sort"
+        android:icon="@android:drawable/ic_menu_sort_by_size"
+        android:orderInCategory="102"
+        android:title="@string/action_sort"
+        app:showAsAction="always"/>
+
+    <item
+        android:id="@+id/action_refresh"
+        android:icon="@android:drawable/stat_notify_sync"
+        android:orderInCategory="201"
+        android:title="@string/action_refresh"
+        app:showAsAction="ifRoom"/>
+
+    <item
+        android:id="@+id/action_delete_all_finished"
+        android:icon="@drawable/ic_menu_delete"
+        android:orderInCategory="202"
+        android:title="@string/action_delete_all_finished"
+        app:showAsAction="ifRoom"/>
 </menu>

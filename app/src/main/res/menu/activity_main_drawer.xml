@@ -3,36 +3,60 @@
       xmlns:tools="http://schemas.android.com/tools"
       tools:showIn="navigation_view">
 
-    <group android:checkableBehavior="single">
+    <group
+            android:id="@+id/nav_group_top"
+            android:checkableBehavior="single">
+
         <item
-                android:id="@+id/nav_camera"
-                android:icon="@drawable/ic_menu_camera"
-                android:title="Import"/>
+                android:id="@+id/nav_folders"
+                android:checkable="false"
+                android:icon="@drawable/ic_menu_folders"
+                android:title="@string/nav_folders"/>
+        <!--
+                <item
+                    android:id="@+id/nav_gallery"
+                    android:icon="@drawable/ic_menu_gallery"
+                    android:title="Gallery"/>
+                <item
+                    android:id="@+id/nav_slideshow"
+                    android:icon="@drawable/ic_menu_slideshow"
+                    android:title="Slideshow"/>
+        -->
         <item
-                android:id="@+id/nav_gallery"
-                android:icon="@drawable/ic_menu_gallery"
-                android:title="Gallery"/>
-        <item
-                android:id="@+id/nav_slideshow"
-                android:icon="@drawable/ic_menu_slideshow"
-                android:title="Slideshow"/>
-        <item
-                android:id="@+id/nav_manage"
-                android:icon="@drawable/ic_menu_manage"
-                android:title="Tools"/>
+                android:id="@+id/nav_settings"
+                android:checkable="false"
+                android:icon="@drawable/ic_menu_settings"
+                android:title="@string/nav_settings"/>
     </group>
 
-    <item android:title="Communicate">
-        <menu>
-            <item
+    <group
+            android:id="@+id/nav_group_bottom"
+            android:checkableBehavior="single">
+        <item
+                android:id="@+id/nav_exit"
+                android:checkable="false"
+                android:icon="@drawable/ic_menu_exit"
+                android:title="@string/nav_exit"/>
+    </group>
+
+    <group
+            android:id="@+id/nav_group_playlist"
+            android:visible="false"
+            android:checkableBehavior="single">
+    </group>
+
+    <!--
+        <item android:title="Communicate">
+            <menu>
+                <item
                     android:id="@+id/nav_share"
                     android:icon="@drawable/ic_menu_share"
                     android:title="Share"/>
-            <item
+                <item
                     android:id="@+id/nav_send"
                     android:icon="@drawable/ic_menu_send"
                     android:title="Send"/>
-        </menu>
-    </item>
-
+            </menu>
+        </item>
+    -->
 </menu>

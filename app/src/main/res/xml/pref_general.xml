@@ -1,0 +1,96 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SwitchPreference
+        android:defaultValue="true"
+        android:key="auto_play_enabled"
+        android:title="@string/pref_title_auto_play"
+        android:summary="@string/pref_description_auto_play"
+    />
+
+    <SwitchPreference
+        android:defaultValue="true"
+        android:key="quiet_mode_enabled"
+        android:title="@string/pref_title_quiet_mode"
+        android:summary="@string/pref_description_quiet_mode"
+    />
+
+    <SwitchPreference
+        android:defaultValue="true"
+        android:key="push_to_background_enabled"
+        android:title="@string/pref_title_push_to_background"
+        android:summary="@string/pref_description_push_to_background"
+        />
+<!--
+    <SwitchPreference
+        android:defaultValue="true"
+        android:key="landscape_orientation_enabled"
+        android:title="@string/pref_title_landscape_orientation"
+        android:summary="@string/pref_description_landscape_orientation"
+    />
+-->
+
+<!--
+    <Preference
+        android:defaultValue="8:00"
+        android:key="enable_bluetooth_start_time"
+        android:title="Enable bluetooth start time"
+        android:summary="Automatically enable bluetooth starting"
+    />
+
+    <Preference
+        android:defaultValue="11:00"
+        android:key="enable_bluetooth_end_time"
+        android:title="Enable bluetooth end time"
+        android:summary="Automatically enable bluetooth ending"
+    />
+-->
+
+    <EditTextPreference
+        android:inputType="text"
+        android:key="bluetooth_async_name"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:title="@string/pref_title_bluetooth_async_name"
+        android:summary="@string/pref_description_bluetooth_async_name"
+    />
+
+    <EditTextPreference
+        android:inputType="text"
+        android:defaultValue="0"
+        android:key="bluetooth_async_offset"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:title="@string/pref_title_bluetooth_async_offset"
+        android:summary="@string/pref_description_bluetooth_async_offset"
+    />
+
+
+    <!-- NOTE: EditTextPreference accepts EditText attributes. -->
+    <!-- NOTE: EditTextPreference's summary should be set to its value by the activity code. -->
+<!--
+    <EditTextPreference
+        android:capitalize="words"
+        android:defaultValue="@string/pref_default_display_name"
+        android:inputType="textCapWords"
+        android:key="example_text"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:title="@string/pref_title_display_name"/>
+-->
+    <!-- NOTE: Hide buttons to simplify the UI. Users can touch outside the dialog to
+         dismiss it. -->
+    <!-- NOTE: ListPreference's summary should be set to its value by the activity code. -->
+<!--
+        <ListPreference
+            android:defaultValue="-1"
+            android:entries="@array/pref_example_list_titles"
+            android:entryValues="@array/pref_example_list_values"
+            android:key="example_list"
+            android:negativeButtonText="@null"
+            android:positiveButtonText="@null"
+            android:title="@string/pref_title_add_friends_to_messages"/>
+-->
+</PreferenceScreen>

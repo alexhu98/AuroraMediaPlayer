@@ -34,6 +34,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         startForegroundService(Intent(this, PlayerService::class.java))
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            App.enterImmersiveMode(window)
+        }
+    }
+
     private fun setUpDataBinding() {
         setSupportActionBar(binding.toolbar)
         binding.setLifecycleOwner(this)
@@ -148,7 +155,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         when (item.itemId) {
-            R.id.action_settings -> return true
+            R.id.action_delete_all_finished -> return true
             else -> return super.onOptionsItemSelected(item)
         }
     }
@@ -156,24 +163,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         // Handle navigation view item clicks here.
         when (item.itemId) {
-            R.id.nav_camera -> {
-                // Handle the camera action
+            R.id.nav_folders -> {
                 repository.queryFileItems("/x", FileItem.FIELD_NAME)
             }
-            R.id.nav_gallery -> {
+            R.id.nav_settings -> {
                 repository.queryFileItems("/x", FileItem.FIELD_FILE_SIZE)
             }
-            R.id.nav_slideshow -> {
-                repository.queryFileItems("/x", FileItem.FIELD_LAST_MODIFIED)
-            }
-            R.id.nav_manage -> {
+            R.id.nav_exit -> {
                 repository.queryFileItems("/t", FileItem.FIELD_NAME)
-            }
-            R.id.nav_share -> {
-
-            }
-            R.id.nav_send -> {
-
             }
         }
         drawer_layout.closeDrawer(GravityCompat.START)

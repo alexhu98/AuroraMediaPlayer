@@ -35,6 +35,7 @@
                         app:subtitle="@{repository.currentFolderInfo}"
                         app:titleTextAppearance="@style/Base.TextAppearance.AppCompat.Subhead"
                         app:subtitleTextAppearance="@style/Base.TextAppearance.AppCompat.Small"
+                        app:layout_scrollFlags="snap"
                         app:popupTheme="@style/AppTheme.PopupOverlay"/>
 
             </android.support.design.widget.AppBarLayout>

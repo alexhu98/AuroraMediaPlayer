@@ -1,0 +1,29 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+      xmlns:app="http://schemas.android.com/apk/res-auto"
+      xmlns:tools="http://schemas.android.com/tools"
+      tools:context="com.prettygoodcomputing.k4.SelectedFoldersActivity">
+    <item
+        android:id="@+id/action_flag"
+        android:icon="@drawable/flag"
+        android:orderInCategory="101"
+        android:title="@string/action_flag"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_mark_as_finished"
+        android:icon="@drawable/finished"
+        android:orderInCategory="102"
+        android:title="@string/action_mark_as_finished"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_mark_as_unfinished"
+        android:icon="@drawable/unfinished"
+        android:orderInCategory="103"
+        android:title="@string/action_mark_as_unfinished"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_delete"
+        android:orderInCategory="104"
+        android:title="@string/action_delete"
+        android:icon="@drawable/ic_menu_delete"
+        app:showAsAction="always"/>
+</menu>
