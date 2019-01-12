@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             recyclerViewGestureDetector.onTouchEvent(event)
         }
 
-        // setup the content of the recyucler view
+        // setup the content of the recycler view
         val fileItemAdapter = FileItemAdapter()
         binding.recyclerView.adapter = fileItemAdapter
         fileItemAdapter.setOnItemClickListener(object : FileItemAdapter.OnItemClickListener {

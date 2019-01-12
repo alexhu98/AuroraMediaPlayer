@@ -10,6 +10,7 @@ class AppRepository(val application: Application) {
 
     private val TAG = "AppRepository"
 
+    val selectedFolders = MediatorLiveData<List<String>>()
     val currentFolder = MutableLiveData<String>()
     val currentFolderInfo = MutableLiveData<String>()
     val currentOrderBy = MutableLiveData<String>()
@@ -19,6 +20,7 @@ class AppRepository(val application: Application) {
     private val allFileItems = fileItemDao.getFileItems()
 
     init {
+        selectedFolders.value = listOf("/t", "/v", "/x")
         currentFileItems.addSource(allFileItems) {
             rearrangeAndCalculate()
         }
