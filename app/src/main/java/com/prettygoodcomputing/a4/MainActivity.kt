@@ -141,7 +141,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onResume() {
         super.onResume()
-        binding.toolbar.title = repository.getCurrentFolder()
+        binding.toolbar.title = Formatter.formatFolderName(repository.getCurrentFolder())
     }
 
     override fun onBackPressed() {
@@ -206,7 +206,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 if (resultCode == Activity.RESULT_OK) {
                     val selectedFolders = data?.getStringArrayExtra("selected-folders")?.toList()
                     if (selectedFolders != null) {
-                        repository.updateSelectedFolders(selectedFolders)
+                        viewModel.updateSelectedFolders(selectedFolders)
                     }
                 }
             }

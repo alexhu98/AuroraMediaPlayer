@@ -8,9 +8,14 @@ class SelectedFoldersViewModel(application: Application): AndroidViewModel(appli
 
     private val repository by lazy { App.getAppRepository() }
 
-    val selectedFolders = MutableLiveData<List<String>>().apply { value = repository.selectedFolders.value }
+    val selectedFolders = MutableLiveData<List<String>>().apply { value = listOf() }
     var selectedItem = MutableLiveData<String>().apply { value = "" }
-    var lastSelectedItem = ""
+
+    init {
+        repository.getAllFolderItems().value?.let {
+            selectedFolders.value = it.map { it.url }
+        }
+    }
 
     fun insert(folder: String) {
         (selectedFolders.value ?: listOf()).toMutableList().apply {
@@ -31,7 +36,6 @@ class SelectedFoldersViewModel(application: Application): AndroidViewModel(appli
     }
 
     fun select(folder: String) {
-        lastSelectedItem = selectedItem.value ?: ""
         selectedItem.value = if (selectedItem.value != folder) folder else ""
     }
 

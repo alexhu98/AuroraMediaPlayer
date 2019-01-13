@@ -7,10 +7,11 @@ import android.arch.persistence.room.RoomDatabase
 import android.content.Context
 import android.os.AsyncTask
 
-@Database(entities = [FileItem::class], version = 1, exportSchema  = false)
+@Database(entities = [FileItem::class, FolderItem::class], version = 1, exportSchema  = false)
 abstract class AppDatabase: RoomDatabase() {
 
     abstract fun fileItemDao(): FileItemDao
+    abstract fun folderItemDao(): FolderItemDao
 
     companion object {
         private var instance: AppDatabase? = null

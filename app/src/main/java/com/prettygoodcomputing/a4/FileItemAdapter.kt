@@ -31,7 +31,7 @@ class FileItemAdapter(val activity: AppCompatActivity, val viewModel: MainViewMo
         val fileItem = getItem(position)
         viewHolder.nameView.text = fileItem.name
         viewHolder.infoView.text = fileItem.fileSize.toString() + "\n12:34 34:56"
-        viewHolder.progressView.text = "*"
+        viewHolder.progressView.text = Formatter.formatProgress(fileItem)
 
         val selected = viewModel.selectedItems.value?.contains(fileItem.id) ?: false
         val id = if (selected) R.color.selection_color else R.color.app_background_color

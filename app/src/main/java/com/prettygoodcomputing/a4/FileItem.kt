@@ -1,6 +1,5 @@
 package com.prettygoodcomputing.a4
 
-import android.arch.persistence.room.ColumnInfo
 import android.arch.persistence.room.Entity
 import android.arch.persistence.room.Ignore
 import android.arch.persistence.room.PrimaryKey
@@ -18,11 +17,9 @@ data class FileItem(
     var hasSubtitle: Boolean = false,
     var deleted: Boolean = false,
     var error: Boolean = false,
-    var bookmarks: String = ""
+    var bookmarks: String = "",
+    @Ignore var selected: Boolean = false
 ) {
-
-    @Ignore
-    constructor(): this(0, "", "", 0L, 0L, 0L, 0L, false, false, false, false, "")
 
     companion object {
         const val FIELD_NAME = "name"

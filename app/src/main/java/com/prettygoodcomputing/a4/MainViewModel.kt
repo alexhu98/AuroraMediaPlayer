@@ -11,17 +11,18 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
     val singleSelection = true
 
     fun switchFolder(direction: Int) {
-        val selectedFolders = repository.getSelectedFolders()
-        if (selectedFolders.size > 1) {
-            val currentFolder = repository.getCurrentFolder()
-            val oldIndex = selectedFolders.indexOf(currentFolder)
-            var newIndex = oldIndex + direction
-            when {
-                newIndex < 0 -> newIndex = selectedFolders.size - 1
-                newIndex >= selectedFolders.size -> newIndex = 0
+        repository.getAllFolderItems().value?.let { folderItems ->
+            if (folderItems.size > 1) {
+                val currentFolder = repository.getCurrentFolder()
+                val oldIndex = folderItems.indexOfFirst { it.url == currentFolder }
+                var newIndex = oldIndex + direction
+                when {
+                    newIndex < 0 -> newIndex = folderItems.size - 1
+                    newIndex >= folderItems.size -> newIndex = 0
+                }
+                val newFolder = folderItems[newIndex].url
+                repository.queryFileItems(newFolder, FileItem.FIELD_NAME)
             }
-            val newFolder = selectedFolders[newIndex]
-            repository.queryFileItems(newFolder, FileItem.FIELD_NAME)
         }
     }
 
@@ -38,6 +39,22 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
                 selectedItems.value = this
             }
         }
+    }
+
+    fun updateSelectedFolders(folders: List<String>) {
+        val oldFolderItems = repository.getAllFolderItems().value ?: listOf()
+        val newFolderItems = mutableListOf<FolderItem>()
+        var newPosition = 0
+        folders.forEach {
+            var oldFolder = oldFolderItems.find { folderItem -> folderItem.url == it }
+            val newFolder = when (oldFolder) {
+                null -> FolderItem(0, it, newPosition)
+                else -> oldFolder.copy().apply { position = newPosition }
+            }
+            newFolderItems.add(newFolder)
+            newPosition++
+        }
+        repository.updateFolderItems(newFolderItems)
     }
 
     fun onLongClickFileItem(fileItem: FileItem) {

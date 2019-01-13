@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layout>
     <data>
+        <import type="com.prettygoodcomputing.a4.Formatter" />
         <variable name="viewModel" type="com.prettygoodcomputing.a4.MainViewModel" />
         <variable name="repository" type="com.prettygoodcomputing.a4.AppRepository" />
     </data>
@@ -31,7 +32,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="?attr/actionBarSize"
                         android:background="?attr/colorAccent"
-                        app:title="@{repository.currentFolder}"
+                        app:title="@{Formatter.formatFolderName(repository.currentFolder)}"
                         app:subtitle="@{repository.currentFolderInfo}"
                         app:titleTextAppearance="@style/Base.TextAppearance.AppCompat.Subhead"
                         app:subtitleTextAppearance="@style/Base.TextAppearance.AppCompat.Small"

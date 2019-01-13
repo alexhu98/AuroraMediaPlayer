@@ -19,5 +19,5 @@ interface FileItemDao {
     fun deleteAllFinished(folder: String)
 
     @Query("SELECT * FROM FileItem")
-    fun getFileItems(): LiveData<List<FileItem>>
+    fun getAll(): LiveData<List<FileItem>>
 }

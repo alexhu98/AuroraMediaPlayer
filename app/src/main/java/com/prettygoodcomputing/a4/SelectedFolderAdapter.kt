@@ -21,41 +21,25 @@ class SelectedFolderAdapter(val activity: AppCompatActivity, val viewModel: Sele
 
     init {
         viewModel.selectedItem.observe(activity, Observer {
-            val list = viewModel.selectedFolders.value ?: listOf()
-            val lastIndex = list.indexOf(viewModel.lastSelectedItem)
-            if (lastIndex >= 0) {
-                notifyItemChanged(lastIndex)
-            }
-            val index = list.indexOf(it)
-            if (index >= 0) {
-                notifyItemChanged(index)
-            }
+            notifyDataSetChanged()
         })
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+//        val binding = DataBindingUtil.inflate<SelectedFolderBinding>(LayoutInflater.from(parent.context), R.layout.selected_folder, parent, false)
+//        return ViewHolder(binding)
         val view = LayoutInflater.from(parent.context).inflate(R.layout.selected_folder, parent, false)
         return ViewHolder(view)
     }
 
     override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
-        val selectedFolder = getItem(position)
-        viewHolder.nameView.text = selectedFolder
-        viewHolder.infoView.text = selectedFolder
+        val folderItem = getItem(position)
+        viewHolder.nameView.text = Formatter.formatFolderName(folderItem)
+        viewHolder.infoView.text = folderItem
 
-        val selected = selectedFolder == viewModel.selectedItem.value
+        val selected = folderItem == viewModel.selectedItem.value
         val id = if (selected) R.color.selection_color else R.color.app_background_color
-        viewHolder.view.setBackgroundColor(activity.getResources().getColor(id, activity.theme))
-
-//        viewHolder.handleView.setOnTouchListener { v, event ->
-//            when (event?.action) {
-//                MotionEvent.ACTION_DOWN -> {
-//                    listener?.onItemStartDrag(viewHolder)
-//                }
-//            }
-//            v?.onTouchEvent(event)
-//            true
-//        }
+        viewHolder.view.setBackgroundColor(activity.resources.getColor(id, activity.theme))
     }
 
     inner class ViewHolder(val view: View) : RecyclerView.ViewHolder(view) {
