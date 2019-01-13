@@ -1,5 +1,7 @@
 package com.prettygoodcomputing.a4
 
+import android.arch.lifecycle.Observer
+import android.support.v7.app.AppCompatActivity
 import android.support.v7.recyclerview.extensions.ListAdapter
 import android.support.v7.util.DiffUtil
 import android.support.v7.widget.RecyclerView
@@ -10,9 +12,15 @@ import android.widget.TextView
 
 import kotlinx.android.synthetic.main.file_item.view.*
 
-class FileItemAdapter: ListAdapter<FileItem, FileItemAdapter.ViewHolder>(DIFF_CALLBACK) {
+class FileItemAdapter(val activity: AppCompatActivity, val viewModel: MainViewModel): ListAdapter<FileItem, FileItemAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     var listener: OnItemClickListener? = null
+
+    init {
+        viewModel.selectedItems.observe(activity, Observer {
+            notifyDataSetChanged()
+        })
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.file_item, parent, false)
@@ -24,6 +32,10 @@ class FileItemAdapter: ListAdapter<FileItem, FileItemAdapter.ViewHolder>(DIFF_CA
         viewHolder.nameView.text = fileItem.name
         viewHolder.infoView.text = fileItem.fileSize.toString() + "\n12:34 34:56"
         viewHolder.progressView.text = "*"
+
+        val selected = viewModel.selectedItems.value?.contains(fileItem.id) ?: false
+        val id = if (selected) R.color.selection_color else R.color.app_background_color
+        viewHolder.view.setBackgroundColor(activity.getResources().getColor(id, activity.theme))
     }
 
     inner class ViewHolder(val view: View) : RecyclerView.ViewHolder(view) {

@@ -27,9 +27,7 @@
     <string name="media_pause">Pause</string>
     <string name="media_paused">Paused</string>
     <string name="media_stop">Stop</string>
-    <string name="menu_divider_thick">
-        \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
-    </string>
+    <string name="menu_divider_thick">\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501</string>
     <string name="menu_divider">\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF</string>
     <string name="menu_divider_short">\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA</string>
     <string name="playlist">Playlist</string>
@@ -142,5 +140,4 @@
     <string name="pref_ringtone_silent">Silent</string>
 
     <string name="pref_title_vibrate">Vibrate</string>
-    <string name="title_activity_selected_folders">Selected Folders</string>
 </resources>

@@ -311,7 +311,8 @@ class PlayerService : MediaBrowserServiceCompat() {
             concatenatingMediaSource.addMediaSource(mediaSource)
         }
         player.prepare(concatenatingMediaSource)
-        player.playWhenReady = true
+//        player.playWhenReady = true
+        player.playWhenReady = false
     }
 
     private fun releasePlayer() {

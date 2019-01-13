@@ -55,11 +55,11 @@ class SelectedFoldersActivity : AppCompatActivity() {
         itemTouchHelper.attachToRecyclerView(binding.recyclerView)
 
         // setup the content of the recycler view
-        val selectedFolderAdapter = SelectedFolderAdapter()
+        val selectedFolderAdapter = SelectedFolderAdapter(this, viewModel)
         binding.recyclerView.adapter = selectedFolderAdapter
         selectedFolderAdapter.setOnItemClickListener(object : SelectedFolderAdapter.OnItemClickListener {
             override fun onItemClick(folder: String) {
-                viewModel.onClickSelectedFolder(folder)
+                viewModel.select(folder)
             }
 
             override fun onItemStartDrag(viewHolder: RecyclerView.ViewHolder) {
@@ -78,8 +78,9 @@ class SelectedFoldersActivity : AppCompatActivity() {
     }
 
     private fun setActivityResult() {
-//        intent.putExtra("selected-folders", mSelectedFolders.toTypedArray())
-        setResult(RESULT_OK, intent)
+        val selectedFolders = viewModel.selectedFolders.value ?: listOf()
+        intent.putExtra("selected-folders", selectedFolders.toTypedArray())
+        setResult(Activity.RESULT_OK, intent)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, intent: Intent?) {
@@ -156,7 +157,8 @@ class SelectedFoldersActivity : AppCompatActivity() {
             if (viewHolder != null) {
                 val selectedFolder = viewHolder.toString()
                 Logger.v(TAG, "onSwiped() selectedFolder = $selectedFolder")
-//                mListener?.onListFragmentDeleted(selectedFolder)
+                viewModel.delete(selectedFolder)
+                setActivityResult()
             }
             Logger.exit(TAG, "onSwiped()")
         }

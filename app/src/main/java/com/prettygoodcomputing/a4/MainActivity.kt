@@ -1,6 +1,7 @@
 package com.prettygoodcomputing.a4
 
 import android.Manifest
+import android.app.Activity
 import android.arch.lifecycle.Observer
 import android.content.Intent
 import android.databinding.DataBindingUtil
@@ -18,13 +19,15 @@ import pub.devrel.easypermissions.EasyPermissions
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
+    private val TAG = "MainActivity"
+
     private val REQUEST_NAVIGATE_FOLDERS = 100
     private val REQUEST_NAVIGATE_SETTINGS = 101
     private val REQUEST_PERMISSIONS = 102
 
     private val binding by lazy { DataBindingUtil.setContentView<ActivityMainBinding>(this, R.layout.activity_main) }
-    private val mainViewModel by lazy { MainViewModel(application) }
-    private val repository by lazy { mainViewModel.repository }
+    private val viewModel by lazy { MainViewModel(application) }
+    private val repository by lazy { viewModel.repository }
     private val context = this
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,7 +52,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private fun setUpDataBinding() {
         setSupportActionBar(binding.toolbar)
         binding.setLifecycleOwner(this)
-        binding.mainViewModel = mainViewModel
+        binding.viewModel = viewModel
         binding.repository = repository
     }
 
@@ -65,7 +68,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 val flingVelocity = viewConfiguration.scaledMinimumFlingVelocity / 2
                 if (Math.abs(velocityX) > Math.abs(velocityY)) {
                     if (velocityX > flingVelocity || velocityX < -flingVelocity) {
-                        mainViewModel.switchFolder(Math.signum(velocityX).toInt())
+                        viewModel.switchFolder(Math.signum(velocityX).toInt())
                         return true
                     }
                 }
@@ -80,15 +83,15 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
 
         // setup the content of the recycler view
-        val fileItemAdapter = FileItemAdapter()
+        val fileItemAdapter = FileItemAdapter(this, viewModel)
         binding.recyclerView.adapter = fileItemAdapter
         fileItemAdapter.setOnItemClickListener(object : FileItemAdapter.OnItemClickListener {
             override fun onItemClick(fileItem: FileItem) {
-                mainViewModel.onClickFileItem(fileItem)
+                viewModel.select(fileItem)
             }
 
             override fun onItemLongClick(fileItem: FileItem) {
-                mainViewModel.onLongClickFileItem(fileItem)
+                viewModel.onLongClickFileItem(fileItem)
             }
         })
 
@@ -188,11 +191,26 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 binding.drawerLayout.closeDrawer(GravityCompat.START)
                 true
             }
-            drawer_layout.isDrawerOpen(GravityCompat.END) -> {
+            binding.drawerLayout.isDrawerOpen(GravityCompat.END) -> {
                 binding.drawerLayout.closeDrawer(GravityCompat.END)
                 true
             }
             else -> false
         }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        Logger.enter(TAG, "onActivityResult() requestCode = $requestCode, resultCode = $resultCode")
+        when (requestCode) {
+            REQUEST_NAVIGATE_FOLDERS -> {
+                if (resultCode == Activity.RESULT_OK) {
+                    val selectedFolders = data?.getStringArrayExtra("selected-folders")?.toList()
+                    if (selectedFolders != null) {
+                        repository.updateSelectedFolders(selectedFolders)
+                    }
+                }
+            }
+        }
+        Logger.exit(TAG, "onActivityResult() requestCode = $requestCode, resultCode = $resultCode")
     }
 }

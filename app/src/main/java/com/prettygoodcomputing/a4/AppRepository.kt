@@ -4,27 +4,41 @@ import android.app.Application
 import android.arch.lifecycle.LiveData
 import android.arch.lifecycle.MediatorLiveData
 import android.arch.lifecycle.MutableLiveData
+import android.content.Context
 import android.os.AsyncTask
 
 class AppRepository(val application: Application) {
 
     private val TAG = "AppRepository"
 
+    private val ARG_DATA_STORE = "data-store"
+    private val ARG_SELECTED_FOLDERS = "selected-folders"
+    private val ARG_SELECTED_FOLDER_OPTIONS = "selected-folder-options"
+    private val ARG_FILE_ITEMS = "file-items"
+    private val ARG_LAST_SELECTED_FOLDER = "last-selected-folder"
+    private val ARG_LAST_SELECTED_ITEM_MAP = "last-selected-item-map"
+    private val ARG_LAST_PLAY_ITEM = "last-play-item"
+    private val ARG_STORAGE_VOLUME = "storage-volume"
+    private val ARG_DATABASE_LAST_UPDATE_TIME = "database-last-update"
+
     val selectedFolders = MediatorLiveData<List<String>>()
-    val currentFolder = MutableLiveData<String>()
-    val currentFolderInfo = MutableLiveData<String>()
-    val currentOrderBy = MutableLiveData<String>()
-    val currentFileItems = MediatorLiveData<List<FileItem>>()
+    val currentFolder = MutableLiveData<String>().apply { value = "" }
+    val currentFolderInfo = MutableLiveData<String>().apply { value = "" }
+    val currentOrderBy = MutableLiveData<String>().apply { value = FileItem.FIELD_NAME }
+    val currentFileItems = MediatorLiveData<List<FileItem>>().apply { value = listOf() }
 
     private val fileItemDao = AppDatabase.getInstance(application).fileItemDao()
     private val allFileItems = fileItemDao.getFileItems()
 
     init {
-        selectedFolders.value = listOf("/t", "/v", "/x")
         currentFileItems.addSource(allFileItems) {
             rearrangeAndCalculate()
         }
-        queryFileItems("/x", FileItem.FIELD_NAME)
+        initSelectedFolders()
+        if (getSelectedFolders().isNotEmpty()) {
+            currentFolder.value = getSelectedFolders()[0]
+        }
+        queryFileItems(getCurrentFolder(), getCurrentOrderBy())
     }
 
     @Synchronized
@@ -107,28 +121,55 @@ class AppRepository(val application: Application) {
         setCurrentFolderInfo(folderInfo)
     }
 
+    @Synchronized
     fun getAllFileItems(): LiveData<List<FileItem>> {
         return allFileItems
     }
 
+    @Synchronized
     fun getCurrentFileItems(): LiveData<List<FileItem>> {
         return currentFileItems
     }
 
+    @Synchronized
     fun insert(fileItem: FileItem) {
         InsertFileItemAsyncTask(fileItemDao).execute(fileItem)
     }
 
+    @Synchronized
     fun update(fileItem: FileItem) {
         UpdateFileItemAsyncTask(fileItemDao).execute(fileItem)
     }
 
+    @Synchronized
     fun delete(fileItem: FileItem) {
         DeleteFileItemAsyncTask(fileItemDao).execute(fileItem)
     }
 
+    @Synchronized
     fun deleteAllFinished(folder: String) {
         DeleteAllFinishedFileItemAsyncTask(fileItemDao).execute(folder)
+    }
+
+    private fun initSelectedFolders() {
+        val sharedPreferences = App.getContext().getSharedPreferences(ARG_DATA_STORE, Context.MODE_PRIVATE)
+        val value = sharedPreferences.getString(ARG_SELECTED_FOLDERS, "")
+        selectedFolders.value = if (value == null || value.isEmpty()) emptyList<String>() else value.split("\n")
+    }
+
+    @Synchronized
+    fun getSelectedFolders(): List<String> {
+        return selectedFolders.value ?: listOf()
+    }
+
+    @Synchronized
+    fun updateSelectedFolders(folders: List<String>) {
+        // need to update preference
+        val editor = App.getContext().getSharedPreferences(ARG_DATA_STORE, Context.MODE_PRIVATE).edit()
+        val value = folders.joinToString("\n")
+        editor.putString(ARG_SELECTED_FOLDERS, value)
+        editor.apply()
+        selectedFolders.value = folders
     }
 
     companion object {
