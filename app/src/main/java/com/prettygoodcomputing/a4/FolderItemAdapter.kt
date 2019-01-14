@@ -10,13 +10,12 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import android.widget.TextView
-import com.prettygoodcomputing.a4.databinding.SelectedFolderBinding
-import kotlinx.android.synthetic.main.selected_folder.view.*
+import com.prettygoodcomputing.a4.databinding.FolderItemBinding
+import kotlinx.android.synthetic.main.folder_item.view.*
 
-class SelectedFolderAdapter(val activity: AppCompatActivity, val viewModel: SelectedFoldersViewModel): ListAdapter<FolderItem, SelectedFolderAdapter.ViewHolder>(DIFF_CALLBACK) {
+class FolderItemAdapter(val activity: AppCompatActivity, val viewModel: SelectedFoldersViewModel): ListAdapter<FolderItem, FolderItemAdapter.ViewHolder>(DIFF_CALLBACK) {
 
-    private val TAG = "SelectedFolderAdapter"
+    private val TAG = "FolderItemAdapter"
 
     var listener: OnItemClickListener? = null
 
@@ -27,7 +26,7 @@ class SelectedFolderAdapter(val activity: AppCompatActivity, val viewModel: Sele
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.selected_folder, parent, false)
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.folder_item, parent, false)
         return ViewHolder(view)
     }
 
@@ -40,7 +39,7 @@ class SelectedFolderAdapter(val activity: AppCompatActivity, val viewModel: Sele
     }
 
     inner class ViewHolder(val view: View) : RecyclerView.ViewHolder(view) {
-        private val binding = SelectedFolderBinding.bind(view)
+        private val binding = FolderItemBinding.bind(view)
         private val handleView: ImageView = view.handle
 
         init {

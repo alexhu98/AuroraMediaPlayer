@@ -55,9 +55,9 @@ class SelectedFoldersActivity : AppCompatActivity() {
         itemTouchHelper.attachToRecyclerView(binding.recyclerView)
 
         // setup the content of the recycler view
-        val selectedFolderAdapter = SelectedFolderAdapter(this, viewModel)
+        val selectedFolderAdapter = FolderItemAdapter(this, viewModel)
         binding.recyclerView.adapter = selectedFolderAdapter
-        selectedFolderAdapter.setOnItemClickListener(object : SelectedFolderAdapter.OnItemClickListener {
+        selectedFolderAdapter.setOnItemClickListener(object : FolderItemAdapter.OnItemClickListener {
             override fun onItemClick(folder: String) {
                 viewModel.select(folder)
             }
