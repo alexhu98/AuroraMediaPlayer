@@ -11,47 +11,43 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import com.prettygoodcomputing.a4.databinding.SelectedFolderBinding
 import kotlinx.android.synthetic.main.selected_folder.view.*
 
-class SelectedFolderAdapter(val activity: AppCompatActivity, val viewModel: SelectedFoldersViewModel): ListAdapter<String, SelectedFolderAdapter.ViewHolder>(DIFF_CALLBACK) {
+class SelectedFolderAdapter(val activity: AppCompatActivity, val viewModel: SelectedFoldersViewModel): ListAdapter<FolderItem, SelectedFolderAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     private val TAG = "SelectedFolderAdapter"
 
     var listener: OnItemClickListener? = null
 
     init {
-        viewModel.selectedItem.observe(activity, Observer {
+        viewModel.selectedFolders.observe(activity, Observer {
             notifyDataSetChanged()
         })
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-//        val binding = DataBindingUtil.inflate<SelectedFolderBinding>(LayoutInflater.from(parent.context), R.layout.selected_folder, parent, false)
-//        return ViewHolder(binding)
         val view = LayoutInflater.from(parent.context).inflate(R.layout.selected_folder, parent, false)
         return ViewHolder(view)
     }
 
     override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
-        val folderItem = getItem(position)
-        viewHolder.nameView.text = Formatter.formatFolderName(folderItem)
-        viewHolder.infoView.text = folderItem
-
-        val selected = folderItem == viewModel.selectedItem.value
-        val id = if (selected) R.color.selection_color else R.color.app_background_color
-        viewHolder.view.setBackgroundColor(activity.resources.getColor(id, activity.theme))
+        val folder = getItem(position).url
+        val folderItem = viewModel.selectedFolders.value?.find { it.url == folder }
+        if (folderItem != null) {
+            viewHolder.bindFolderItem(folderItem)
+        }
     }
 
     inner class ViewHolder(val view: View) : RecyclerView.ViewHolder(view) {
-        val nameView: TextView = view.name
-        val infoView: TextView = view.info
-        val handleView: ImageView = view.handle
+        private val binding = SelectedFolderBinding.bind(view)
+        private val handleView: ImageView = view.handle
 
         init {
             view.setOnClickListener{
                 val position = adapterPosition
                 if (position != RecyclerView.NO_POSITION) {
-                    listener?.onItemClick(getItem(position))
+                    listener?.onItemClick(getItem(position).url)
                 }
             }
 
@@ -66,8 +62,8 @@ class SelectedFolderAdapter(val activity: AppCompatActivity, val viewModel: Sele
             }
         }
 
-        override fun toString(): String {
-            return infoView.text.toString()
+        fun bindFolderItem(folderItem: FolderItem) {
+            binding.folderItem = folderItem
         }
     }
 
@@ -81,12 +77,12 @@ class SelectedFolderAdapter(val activity: AppCompatActivity, val viewModel: Sele
     }
 
     companion object {
-        val DIFF_CALLBACK = object: DiffUtil.ItemCallback<String>() {
-            override fun areItemsTheSame(oldItem: String, newItem: String): Boolean {
+        val DIFF_CALLBACK = object: DiffUtil.ItemCallback<FolderItem>() {
+            override fun areItemsTheSame(oldItem: FolderItem, newItem: FolderItem): Boolean {
                 return oldItem.equals(newItem)
             }
 
-            override fun areContentsTheSame(oldItem: String, newItem: String): Boolean {
+            override fun areContentsTheSame(oldItem: FolderItem, newItem: FolderItem): Boolean {
                 return oldItem.equals(newItem)
             }
         }

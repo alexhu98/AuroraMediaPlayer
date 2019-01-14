@@ -7,20 +7,17 @@ import android.arch.lifecycle.MutableLiveData
 class SelectedFoldersViewModel(application: Application): AndroidViewModel(application) {
 
     private val repository by lazy { App.getAppRepository() }
-
-    val selectedFolders = MutableLiveData<List<String>>().apply { value = listOf() }
-    var selectedItem = MutableLiveData<String>().apply { value = "" }
-
-    init {
-        repository.getAllFolderItems().value?.let {
-            selectedFolders.value = it.map { it.url }
-        }
+    val selectedFolders = MutableLiveData<List<FolderItem>>().apply {
+        value = repository.getAllFolderItems().value?.map { it.copy() }
+                ?: listOf()
     }
+    var selectedItem = MutableLiveData<String>().apply { value = "" }
 
     fun insert(folder: String) {
         (selectedFolders.value ?: listOf()).toMutableList().apply {
-            if (!contains(folder)) {
-                add(folder)
+            val folderItem = find {it.url == folder }
+            if (folderItem == null) {
+                add(FolderItem(0, folder))
                 selectedFolders.value = this
             }
         }
@@ -28,21 +25,34 @@ class SelectedFoldersViewModel(application: Application): AndroidViewModel(appli
 
     fun delete(folder: String) {
         (selectedFolders.value ?: listOf()).toMutableList().apply {
-            if (contains(folder)) {
-                remove(folder)
+            val folderItem = find {it.url == folder }
+            if (folderItem != null) {
+                remove(folderItem)
                 selectedFolders.value = this
             }
         }
     }
 
     fun select(folder: String) {
-        selectedItem.value = if (selectedItem.value != folder) folder else ""
+        (selectedFolders.value ?: listOf()).toMutableList().apply {
+            val oldFolderItem = find { it.selected }
+            val newFolderItem = find { it.url == folder }
+            if (oldFolderItem != null) {
+                oldFolderItem.selected = false
+            }
+            if (newFolderItem != null) {
+                newFolderItem.selected = true
+            }
+            selectedFolders.value = this
+        }
     }
 
-    fun swap(fromItem: String, fromPosition: Int, toItem: String, toPosition: Int) {
+    fun swap(fromPosition: Int, toPosition: Int) {
         val selectedFolderList = selectedFolders.value
         if (selectedFolderList != null) {
             val newList = selectedFolderList.toMutableList()
+            val fromItem = newList[fromPosition]
+            val toItem = newList[toPosition]
             newList[fromPosition] = toItem
             newList[toPosition] = fromItem
             selectedFolders.value = newList

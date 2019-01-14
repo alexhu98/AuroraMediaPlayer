@@ -67,7 +67,7 @@ class SelectedFoldersActivity : AppCompatActivity() {
             }
         })
 
-        viewModel.selectedFolders.observe(this, Observer<List<String>> {
+        viewModel.selectedFolders.observe(this, Observer<List<FolderItem>> {
             selectedFolderAdapter.submitList(it)
         })
     }
@@ -78,7 +78,7 @@ class SelectedFoldersActivity : AppCompatActivity() {
     }
 
     private fun setActivityResult() {
-        val selectedFolders = viewModel.selectedFolders.value ?: listOf()
+        val selectedFolders = viewModel.selectedFolders.value?.map { it.url} ?: listOf()
         intent.putExtra("selected-folders", selectedFolders.toTypedArray())
         setResult(Activity.RESULT_OK, intent)
     }
@@ -140,12 +140,9 @@ class SelectedFoldersActivity : AppCompatActivity() {
         override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean {
             Logger.enter(TAG, "onMove()")
             if (recyclerView != null && viewHolder != null && target != null) {
-                val fromItem = viewHolder.toString()
                 val fromPosition = viewHolder.adapterPosition
-                val toItem = target.toString()
                 val toPosition = target.adapterPosition
-                Logger.v(TAG, "onMove() fromPosition = $fromPosition, toPosition = $toPosition")
-                viewModel.swap(fromItem, fromPosition, toItem, toPosition)
+                viewModel.swap(fromPosition, toPosition)
                 setActivityResult()
             }
             Logger.exit(TAG, "onMove()")
