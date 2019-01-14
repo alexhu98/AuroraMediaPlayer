@@ -41,7 +41,7 @@ class Formatter {
         }
 
         @JvmStatic
-        fun formatFolderName(url: String /*, shortName: Boolean = false */): String {
+        fun formatFolderName(url: String): String {
             var name = URLDecoder.decode(url, "UTF-8").substringAfterLast("/")
             val tokens = name.split(":")
             if (tokens.size > 1) {
@@ -54,6 +54,11 @@ class Formatter {
         fun formatFileName(url: String): String {
             val name = URLDecoder.decode(url, "UTF-8")
             return name.substringAfterLast("/").substringBeforeLast(".")
+        }
+
+        @JvmStatic
+        fun formatFileInfo(fileItem: FileItem): String {
+            return formatFileSize(fileItem.fileSize) + "\n" + formatTime(fileItem.position) + " " + formatTime(fileItem.duration)
         }
 
         @JvmStatic

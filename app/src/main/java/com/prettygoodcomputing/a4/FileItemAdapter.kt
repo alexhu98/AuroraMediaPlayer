@@ -8,19 +8,13 @@ import android.support.v7.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
-
-import kotlinx.android.synthetic.main.file_item.view.*
+import com.prettygoodcomputing.a4.databinding.FileItemBinding
 
 class FileItemAdapter(val activity: AppCompatActivity, val viewModel: MainViewModel): ListAdapter<FileItem, FileItemAdapter.ViewHolder>(DIFF_CALLBACK) {
 
-    var listener: OnItemClickListener? = null
+    private val TAG = "FileItemAdapter"
 
-    init {
-        viewModel.selectedItems.observe(activity, Observer {
-            notifyDataSetChanged()
-        })
-    }
+    var listener: OnItemClickListener? = null
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.file_item, parent, false)
@@ -29,19 +23,11 @@ class FileItemAdapter(val activity: AppCompatActivity, val viewModel: MainViewMo
 
     override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
         val fileItem = getItem(position)
-        viewHolder.nameView.text = fileItem.name
-        viewHolder.infoView.text = fileItem.fileSize.toString() + "\n12:34 34:56"
-        viewHolder.progressView.text = Formatter.formatProgress(fileItem)
-
-        val selected = viewModel.selectedItems.value?.contains(fileItem.id) ?: false
-        val id = if (selected) R.color.selection_color else R.color.app_background_color
-        viewHolder.view.setBackgroundColor(activity.getResources().getColor(id, activity.theme))
+        viewHolder.bindFileItem(fileItem)
     }
 
     inner class ViewHolder(val view: View) : RecyclerView.ViewHolder(view) {
-        val nameView: TextView = view.name
-        val infoView: TextView = view.info
-        val progressView: TextView = view.progress
+        private val binding = FileItemBinding.bind(view)
 
         init {
             view.setOnClickListener{
@@ -59,8 +45,8 @@ class FileItemAdapter(val activity: AppCompatActivity, val viewModel: MainViewMo
             }
         }
 
-        override fun toString(): String {
-            return super.toString() + " '" + nameView.text + "'"
+        fun bindFileItem(fileItem: FileItem) {
+            binding.fileItem = fileItem
         }
     }
 

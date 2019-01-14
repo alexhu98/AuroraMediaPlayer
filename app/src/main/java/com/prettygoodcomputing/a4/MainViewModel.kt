@@ -2,13 +2,11 @@ package com.prettygoodcomputing.a4
 
 import android.app.Application
 import android.arch.lifecycle.AndroidViewModel
-import android.arch.lifecycle.MutableLiveData
 
 class MainViewModel(application: Application): AndroidViewModel(application) {
 
     val repository by lazy { App.getAppRepository() }
-    val selectedItems = MutableLiveData<List<Int>>().apply { value = listOf() }
-    val singleSelection = true
+    val singleSelection = false
 
     fun switchFolder(direction: Int) {
         repository.getAllFolderItems().value?.let { folderItems ->
@@ -28,15 +26,30 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
 
     fun select(fileItem: FileItem) {
         if (singleSelection) {
-            selectedItems.value = listOf(fileItem.id)
+            var skip = false
+            val lastSelectionList = repository.currentFileItems.value?.filter { it.selected } ?: listOf()
+            lastSelectionList.forEach {
+                if (it.id == fileItem.id) {
+                    skip = true
+                }
+                else {
+                    it.copy().apply {
+                        selected = false
+                        repository.update(this)
+                    }
+                }
+            }
+            if (!skip) {
+                fileItem.copy().apply {
+                    selected = true
+                    repository.update(this)
+                }
+            }
         }
         else {
-            (selectedItems.value ?: listOf()).toMutableList().apply {
-                when (contains(fileItem.id)) {
-                    true -> remove(fileItem.id)
-                    false -> add(fileItem.id)
-                }
-                selectedItems.value = this
+            fileItem.copy().apply {
+                selected = !selected
+                repository.update(this)
             }
         }
     }

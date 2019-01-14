@@ -19,12 +19,6 @@ class FolderItemAdapter(val activity: AppCompatActivity, val viewModel: Selected
 
     var listener: OnItemClickListener? = null
 
-    init {
-        viewModel.selectedFolders.observe(activity, Observer {
-            notifyDataSetChanged()
-        })
-    }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.folder_item, parent, false)
         return ViewHolder(view)
@@ -78,7 +72,7 @@ class FolderItemAdapter(val activity: AppCompatActivity, val viewModel: Selected
     companion object {
         val DIFF_CALLBACK = object: DiffUtil.ItemCallback<FolderItem>() {
             override fun areItemsTheSame(oldItem: FolderItem, newItem: FolderItem): Boolean {
-                return oldItem.equals(newItem)
+                return oldItem.id == newItem.id
             }
 
             override fun areContentsTheSame(oldItem: FolderItem, newItem: FolderItem): Boolean {

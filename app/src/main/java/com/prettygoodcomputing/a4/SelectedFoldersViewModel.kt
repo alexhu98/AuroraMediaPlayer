@@ -11,7 +11,6 @@ class SelectedFoldersViewModel(application: Application): AndroidViewModel(appli
         value = repository.getAllFolderItems().value?.map { it.copy() }
                 ?: listOf()
     }
-    var selectedItem = MutableLiveData<String>().apply { value = "" }
 
     fun insert(folder: String) {
         (selectedFolders.value ?: listOf()).toMutableList().apply {
@@ -37,13 +36,15 @@ class SelectedFoldersViewModel(application: Application): AndroidViewModel(appli
         (selectedFolders.value ?: listOf()).toMutableList().apply {
             val oldFolderItem = find { it.selected }
             val newFolderItem = find { it.url == folder }
-            if (oldFolderItem != null) {
-                oldFolderItem.selected = false
+            if (oldFolderItem != newFolderItem) {
+                if (oldFolderItem != null) {
+                    this[indexOf(oldFolderItem)] = oldFolderItem.copy().apply { selected = false }
+                }
+                if (newFolderItem != null) {
+                    this[indexOf(newFolderItem)] = newFolderItem.copy().apply { selected = true }
+                }
+                selectedFolders.value = this
             }
-            if (newFolderItem != null) {
-                newFolderItem.selected = true
-            }
-            selectedFolders.value = this
         }
     }
 

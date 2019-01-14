@@ -37,8 +37,6 @@
                     android:id="@+id/recycler_view"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    tools:context=".SelectedFoldersFragment"
-                    tools:showIn="@layout/activity_selected_folders"
                     tools:listitem="@layout/folder_item" />
 
         </android.support.constraint.ConstraintLayout>

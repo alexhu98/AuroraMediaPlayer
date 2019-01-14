@@ -18,7 +18,7 @@ data class FileItem(
     var deleted: Boolean = false,
     var error: Boolean = false,
     var bookmarks: String = "",
-    @Ignore var selected: Boolean = false
+    var selected: Boolean = false
 ) {
 
     companion object {

@@ -39,7 +39,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setUpNavigationDrawer()
         setUpEasyPermissions()
 
-        startForegroundService(Intent(this, PlayerService::class.java))
+//        startForegroundService(Intent(this, PlayerService::class.java))
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
