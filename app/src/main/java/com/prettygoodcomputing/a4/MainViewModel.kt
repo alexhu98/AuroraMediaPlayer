@@ -5,8 +5,10 @@ import android.arch.lifecycle.AndroidViewModel
 
 class MainViewModel(application: Application): AndroidViewModel(application) {
 
+    private val TAG = "MainViewModel"
+
     val repository by lazy { App.getAppRepository() }
-    val singleSelection = false
+    var singleSelection = true
 
     fun switchFolder(direction: Int) {
         repository.getAllFolderItems().value?.let { folderItems ->
@@ -18,16 +20,19 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
                     newIndex < 0 -> newIndex = folderItems.size - 1
                     newIndex >= folderItems.size -> newIndex = 0
                 }
-                val newFolder = folderItems[newIndex].url
-                repository.queryFileItems(newFolder, FileItem.FIELD_NAME)
+                with (folderItems[newIndex]) {
+                    repository.queryFileItems(url, sortBy)
+                }
             }
         }
     }
 
-    fun select(fileItem: FileItem) {
+    fun select(fileItem: FileItem): Int {
+        var count = 1
+        val updatedFileItems = mutableListOf<FileItem>()
         if (singleSelection) {
             var skip = false
-            val lastSelectionList = repository.currentFileItems.value?.filter { it.selected } ?: listOf()
+            val lastSelectionList = getSelectedFileItems()
             lastSelectionList.forEach {
                 if (it.id == fileItem.id) {
                     skip = true
@@ -35,23 +40,69 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
                 else {
                     it.copy().apply {
                         selected = false
-                        repository.update(this)
+                        updatedFileItems.add(this)
                     }
                 }
             }
             if (!skip) {
                 fileItem.copy().apply {
                     selected = true
-                    repository.update(this)
+                    updatedFileItems.add(this)
                 }
             }
         }
         else {
+            count = getSelectedFileItems().size
             fileItem.copy().apply {
                 selected = !selected
-                repository.update(this)
+                count += if (selected) 1 else -1
+                updatedFileItems.add(this)
             }
         }
+        repository.update(updatedFileItems)
+        return count
+    }
+
+    fun resetSelection() {
+        // keep the first one selected, but reset the others
+        if (!singleSelection) {
+            val updatedFileItems = getSelectedFileItems().drop(1).map {
+                it.copy().apply {
+                    selected = false
+                }
+            }
+            repository.update(updatedFileItems)
+            singleSelection = true
+        }
+    }
+
+    fun deleteSelected() {
+        repository.delete(getSelectedFileItems())
+        singleSelection = true
+    }
+
+    fun flagSelected() {
+        getSelectedFileItems().forEach {
+//            repository.delete(it)
+        }
+    }
+
+    fun markSelectedAsFinished() {
+        var first = true
+        val updatedFileItems = getSelectedFileItems().map {
+            it.copy().apply {
+                selected = first
+                finished = !finished
+            }.also {
+                first = false
+            }
+        }
+        repository.update(updatedFileItems)
+        singleSelection = true
+    }
+
+    private fun getSelectedFileItems(): List<FileItem> {
+        return repository.currentFileItems.value?.filter { it.selected } ?: listOf()
     }
 
     fun updateSelectedFolders(folders: List<String>) {
@@ -70,7 +121,20 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
         repository.updateFolderItems(newFolderItems)
     }
 
-    fun onLongClickFileItem(fileItem: FileItem) {
-        repository.delete(fileItem)
+    fun refresh() {
+        repository.refreshCurrentFolder()
+    }
+
+    fun deleteAllFinished() {
+        val finishedFileItems = repository.currentFileItems.value?.filter { it.finished } ?: listOf()
+        repository.delete(finishedFileItems)
+    }
+
+    fun sortBy(fieldName: String) {
+        repository.getCurrentFolderItem()?.copy()?.let {
+            it.sortBy = fieldName
+            repository.update(it)
+            repository.queryFileItems(it.url, fieldName)
+        }
     }
 }

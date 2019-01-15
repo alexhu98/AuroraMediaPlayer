@@ -6,18 +6,29 @@ import android.arch.lifecycle.Observer
 import android.content.Intent
 import android.databinding.DataBindingUtil
 import android.os.Bundle
+import android.provider.Settings
 import android.support.design.widget.Snackbar
 import android.support.design.widget.NavigationView
 import android.support.v4.view.GravityCompat
 import android.support.v7.app.ActionBarDrawerToggle
 import android.support.v7.app.AppCompatActivity
+import android.support.v7.view.ActionMode
 import android.support.v7.widget.LinearLayoutManager
-import android.view.*
+import android.support.v7.widget.PopupMenu
+import android.view.GestureDetector
+import android.view.Menu
+import android.view.MenuItem
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewConfiguration
+import com.crashlytics.android.Crashlytics
 import com.prettygoodcomputing.a4.databinding.ActivityMainBinding
 import kotlinx.android.synthetic.main.activity_main.*
 import pub.devrel.easypermissions.EasyPermissions
 
-class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
+class MainActivity : AppCompatActivity(),
+    NavigationView.OnNavigationItemSelectedListener,
+    ActionMode.Callback {
 
     private val TAG = "MainActivity"
 
@@ -28,7 +39,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private val binding by lazy { DataBindingUtil.setContentView<ActivityMainBinding>(this, R.layout.activity_main) }
     private val viewModel by lazy { MainViewModel(application) }
     private val repository by lazy { viewModel.repository }
+
     private val context = this
+    private var actionMode: ActionMode? = null
+    private var actionModeMenu: Menu? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,7 +92,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         // setup a gesture detector for the recycler view to allow swipe left / right to switch folder
         val recyclerViewGestureDetector = GestureDetector(context, recyclerViewGestureListener)
-        binding.recyclerView.setOnTouchListener { v, event ->
+        binding.recyclerView.setOnTouchListener { _, event ->
             recyclerViewGestureDetector.onTouchEvent(event)
         }
 
@@ -87,11 +101,21 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         binding.recyclerView.adapter = fileItemAdapter
         fileItemAdapter.setOnItemClickListener(object : FileItemAdapter.OnItemClickListener {
             override fun onItemClick(fileItem: FileItem) {
-                viewModel.select(fileItem)
+                val count = viewModel.select(fileItem)
+                if (count == 0) {
+                    actionMode?.finish()
+                }
             }
 
             override fun onItemLongClick(fileItem: FileItem) {
-                viewModel.onLongClickFileItem(fileItem)
+                val count = viewModel.select(fileItem)
+                if (actionMode == null) {
+                    actionMode = startSupportActionMode(context)
+                    viewModel.singleSelection = false
+                }
+                else if (count == 0) {
+                    actionMode?.finish()
+                }
             }
         })
 
@@ -109,9 +133,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private fun setUpNavigationDrawer() {
         val toggle = ActionBarDrawerToggle(
-            this, drawer_layout, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close
+            this, binding.drawerLayout, binding.toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close
         )
-        drawer_layout.addDrawerListener(toggle)
+        binding.drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
 
         nav_view.setNavigationItemSelectedListener(this)
@@ -163,9 +187,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         when (item.itemId) {
-            R.id.action_delete_all_finished -> return true
+            R.id.action_bluetooth -> openBluetoothSettings()
+            R.id.action_sort -> openSortMenu()
+            R.id.action_refresh -> viewModel.refresh()
+            R.id.action_delete_all_finished -> viewModel.deleteAllFinished()
             else -> return super.onOptionsItemSelected(item)
         }
+        return true
     }
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
@@ -183,6 +211,98 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
         }
         return true
+    }
+
+    private fun openBluetoothSettings(): Boolean {
+//        cancelAutoPlay()
+//        if (TimeProfile.autoMaximumBrightness()) {
+//            App.setScreenBrightness()
+//        }
+        App.enableBluetooth()
+        startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+        return true
+    }
+
+    private fun openSortMenu(): Boolean {
+//        cancelAutoPlay()
+        val menuItemView = findViewById<View>(R.id.action_sort)
+        if (menuItemView != null) {
+            val popupMenu = PopupMenu(context, menuItemView)
+            popupMenu.inflate(R.menu.sort)
+            checkOptionsMenu(popupMenu.menu)
+            popupMenu.setOnMenuItemClickListener {
+                when (it.itemId) {
+                    R.id.action_sort_by_name -> viewModel.sortBy(FileItem.FIELD_NAME)
+                    R.id.action_sort_by_size -> viewModel.sortBy(FileItem.FIELD_FILE_SIZE)
+                    R.id.action_sort_by_date -> viewModel.sortBy(FileItem.FIELD_LAST_MODIFIED)
+                }
+                true
+            }
+            popupMenu.show()
+        }
+        return true
+    }
+
+    private fun setChecked(menuItem: MenuItem?, checked: Boolean) {
+        menuItem?.apply {
+            isCheckable = checked
+            isChecked = checked
+        }
+    }
+
+    private fun checkOptionsMenu(menu: Menu?) {
+        if (menu != null) {
+            when (repository.getCurrentSortBy()) {
+                FileItem.FIELD_FILE_SIZE -> {
+                    setChecked(menu.findItem(R.id.action_sort_by_name), false)
+                    setChecked(menu.findItem(R.id.action_sort_by_size), true)
+                    setChecked(menu.findItem(R.id.action_sort_by_date), false)
+                }
+                FileItem.FIELD_LAST_MODIFIED -> {
+                    setChecked(menu.findItem(R.id.action_sort_by_name), false)
+                    setChecked(menu.findItem(R.id.action_sort_by_size), false)
+                    setChecked(menu.findItem(R.id.action_sort_by_date), true)
+                }
+                else -> {
+                    setChecked(menu.findItem(R.id.action_sort_by_name), true)
+                    setChecked(menu.findItem(R.id.action_sort_by_size), false)
+                    setChecked(menu.findItem(R.id.action_sort_by_date), false)
+                }
+            }
+        }
+    }
+
+    override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+        Logger.enter(TAG, "onCreateActionMode()")
+        try {
+            mode?.menuInflater?.inflate(R.menu.fileitems, menu)
+            actionModeMenu = menu
+        }
+        catch (e: Exception) {
+            Crashlytics.logException(e)
+        }
+        Logger.exit(TAG, "onCreateActionMode()")
+        return true
+    }
+
+    override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+        return false
+    }
+
+    override fun onDestroyActionMode(mode: ActionMode?) {
+        actionMode = null
+        actionModeMenu = null
+        viewModel.resetSelection()
+    }
+
+    override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
+        when (item?.itemId) {
+            R.id.action_delete -> viewModel.deleteSelected()
+            R.id.action_flag -> viewModel.flagSelected()
+            R.id.action_mark_as_finished -> viewModel.markSelectedAsFinished()
+        }
+        mode?.finish()
+        return false
     }
 
     private fun closeDrawer(): Boolean {

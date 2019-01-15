@@ -26,7 +26,7 @@ class AppRepository(val application: Application) {
 
     val currentFolder = MutableLiveData<String>().apply { value = "" }
     val currentFolderInfo = MutableLiveData<String>().apply { value = "" }
-    val currentOrderBy = MutableLiveData<String>().apply { value = FileItem.FIELD_NAME }
+    val currentSortBy = MutableLiveData<String>().apply { value = FileItem.FIELD_NAME }
     val currentFileItems = MediatorLiveData<List<FileItem>>().apply { value = listOf() }
 
     private val fileItemDao = AppDatabase.getInstance(application).fileItemDao()
@@ -39,11 +39,11 @@ class AppRepository(val application: Application) {
             rearrangeAndCalculate()
         }
         if (getCurrentFolder().isNotEmpty()) {
-            queryFileItems(getCurrentFolder(), getCurrentOrderBy())
+            queryFileItems(getCurrentFolder(), getCurrentSortBy())
         }
         allFolderItems.observeForever {
             if (!it.isNullOrEmpty() && currentFolder.value.isNullOrEmpty()) {
-                queryFileItems(it[0].url, getCurrentOrderBy())
+                queryFileItems(it[0].url, getCurrentSortBy())
             }
         }
     }
@@ -59,6 +59,13 @@ class AppRepository(val application: Application) {
     }
 
     @Synchronized
+    fun refreshCurrentFolder() {
+        currentFolder.value?.let {
+            RefreshFolderAsyncTask().execute(it)
+        }
+    }
+
+    @Synchronized
     fun getCurrentFolderInfo(): String {
         return currentFolderInfo.value ?: ""
     }
@@ -69,20 +76,20 @@ class AppRepository(val application: Application) {
     }
 
     @Synchronized
-    fun getCurrentOrderBy(): String {
-        return currentOrderBy.value ?: ""
+    fun getCurrentSortBy(): String {
+        return currentSortBy.value ?: ""
     }
 
     @Synchronized
-    fun setCurrentOrderBy(orderBy: String) {
-        currentOrderBy.value = orderBy
+    fun setCurrentSortBy(orderBy: String) {
+        currentSortBy.value = orderBy
     }
 
     @Synchronized
-    fun queryFileItems(folder: String, orderBy: String) {
-        if (getCurrentFolder() != folder || getCurrentOrderBy() != orderBy) {
+    fun queryFileItems(folder: String, sortBy: String) {
+        if (getCurrentFolder() != folder || getCurrentSortBy() != sortBy) {
             setCurrentFolder(folder)
-            setCurrentOrderBy(orderBy)
+            setCurrentSortBy(sortBy)
             rearrangeAndCalculate()
         }
     }
@@ -113,7 +120,7 @@ class AppRepository(val application: Application) {
     }
 
     private fun rearrangeFileItems(all: List<FileItem>?): List<FileItem> {
-        val comparator: Comparator<FileItem> = when (getCurrentOrderBy()) {
+        val comparator: Comparator<FileItem> = when (getCurrentSortBy()) {
             FileItem.FIELD_NAME -> compareBy({ it.name }, { it.fileSize })
             FileItem.FIELD_FILE_SIZE -> compareBy({ -it.fileSize }, { it.name })
             FileItem.FIELD_LAST_MODIFIED -> compareBy({ -it.lastModified }, { it.name })
@@ -156,29 +163,49 @@ class AppRepository(val application: Application) {
         return currentFileItems
     }
 
+//    @Synchronized
+//    fun update(fileItem: FileItem) {
+//        update(listOf(fileItem))
+//    }
+
     @Synchronized
-    fun insert(fileItem: FileItem) {
-        InsertFileItemAsyncTask().execute(fileItem)
+    fun update(fileItems: List<FileItem>) {
+        if (fileItems.isNotEmpty()) {
+            InsertOrUpdateFileItemAsyncTask().execute(fileItems)
+        }
+    }
+
+//    @Synchronized
+//    fun delete(fileItem: FileItem) {
+//        delete(listOf(fileItem))
+//    }
+
+    @Synchronized
+    fun delete(fileItems: List<FileItem>) {
+        if (fileItems.isNotEmpty()) {
+            DeleteFileItemAsyncTask().execute(fileItems)
+        }
     }
 
     @Synchronized
-    fun update(fileItem: FileItem) {
-        UpdateFileItemAsyncTask().execute(fileItem)
+    fun getFolderItem(folder: String): FolderItem? {
+        return allFolderItems.value?.find { it.url == folder }
     }
 
     @Synchronized
-    fun delete(fileItem: FileItem) {
-        DeleteFileItemAsyncTask().execute(fileItem)
+    fun getCurrentFolderItem(): FolderItem? {
+        return getFolderItem(getCurrentFolder())
     }
 
-    @Synchronized
-    fun deleteAllFinished(folder: String) {
-        DeleteAllFinishedFileItemAsyncTask().execute(folder)
-    }
 
     @Synchronized
     fun getAllFolderItems(): LiveData<List<FolderItem>> {
         return allFolderItems
+    }
+
+    @Synchronized
+    fun update(folderItem: FolderItem) {
+        UpdateFolderItemAsyncTask().execute(folderItem)
     }
 
     @Synchronized
@@ -196,6 +223,7 @@ class AppRepository(val application: Application) {
             }
             else {
                 val urlList = mutableListOf<String>()
+                val updatedFileItems = mutableListOf<FileItem>()
                 listFiles.forEach { file ->
                     val url = file.uri.toString()
                     val name = URLDecoder.decode(url, "UTF-8")
@@ -209,21 +237,19 @@ class AppRepository(val application: Application) {
                             fileItemCopy.lastModified = file.lastModified()
                             fileItemCopy.deleted = false
                             fileItemCopy.finished = false
-                            if (fileItemCopy.id == 0) {
-                                fileItemDao.insert(fileItemCopy)
-                            }
-                            else {
-                                fileItemDao.update(fileItemCopy)
-                            }
+                            updatedFileItems.add(fileItemCopy)
                         }
                     }
                 }
+                update(updatedFileItems)
                 // remove the obsolete ones that no longer exists
+                val deletedFileItems = mutableListOf<FileItem>()
                 allFileItems.value?.forEach {
                     if (it.folder == folder && !urlList.contains(it.url)) {
-                        fileItemDao.delete(it)
+                        deletedFileItems.add(it)
                     }
                 }
+                delete(deletedFileItems)
             }
         }
         catch (ex: Exception) {
@@ -232,38 +258,32 @@ class AppRepository(val application: Application) {
         }
     }
 
-    inner class InsertFileItemAsyncTask(): AsyncTask<FileItem, Void?, Void?>() {
-        override fun doInBackground(vararg params: FileItem?): Void? {
-            params[0]?.let {
-                fileItemDao.insert(it)
+    inner class InsertOrUpdateFileItemAsyncTask(): AsyncTask<List<FileItem>, Void?, Void?>() {
+        override fun doInBackground(vararg params: List<FileItem>): Void? {
+            var fileItems = params[0]
+            val insertList = fileItems.filter { it.id == 0 }
+            val updateList = fileItems.filter { it.id != 0 }
+            if (insertList.isNotEmpty()) {
+                fileItemDao.insertAll(*insertList.toTypedArray())
+            }
+            if (updateList.isNotEmpty()) {
+                fileItemDao.updateAll(*updateList.toTypedArray())
             }
             return null
         }
     }
 
-    inner class UpdateFileItemAsyncTask(): AsyncTask<FileItem, Void?, Void?>() {
-        override fun doInBackground(vararg params: FileItem?): Void? {
-            params[0]?.let {
-                fileItemDao.update(it)
-            }
+    inner class DeleteFileItemAsyncTask(): AsyncTask<List<FileItem>, Void?, Void?>() {
+        override fun doInBackground(vararg params: List<FileItem>): Void? {
+            val fileItems = params[0]
+            fileItemDao.deleteAll(*fileItems.toTypedArray())
             return null
         }
     }
 
-    inner class DeleteFileItemAsyncTask(): AsyncTask<FileItem, Void?, Void?>() {
-        override fun doInBackground(vararg params: FileItem?): Void? {
-            params[0]?.let {
-                fileItemDao.delete(it)
-            }
-            return null
-        }
-    }
-
-    inner class DeleteAllFinishedFileItemAsyncTask(): AsyncTask<String, Void?, Void?>() {
-        override fun doInBackground(vararg params: String?): Void? {
-            params[0]?.let {
-                fileItemDao.deleteAllFinished(it)
-            }
+    inner class UpdateFolderItemAsyncTask(): AsyncTask<FolderItem, Void?, Void?>() {
+        override fun doInBackground(vararg params: FolderItem): Void? {
+            folderItemDao.update(params[0])
             return null
         }
     }
@@ -301,6 +321,13 @@ class AppRepository(val application: Application) {
             newFolders.forEach {
                 scanFolder(it)
             }
+            return null
+        }
+    }
+
+    inner class RefreshFolderAsyncTask(): AsyncTask<String, Void?, Void?>() {
+        override fun doInBackground(vararg params: String): Void? {
+            scanFolder(params[0])
             return null
         }
     }

@@ -42,32 +42,6 @@ abstract class AppDatabase: RoomDatabase() {
             private val fileItemDao = db.fileItemDao()
 
             override fun doInBackground(vararg params: Void?): Void? {
-                fileItemDao.insert(FileItem(name = "a.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L))
-                fileItemDao.insert(FileItem(name = "b.mp4", folder = "/x", fileSize = 1232L, lastModified = 1234562L))
-                fileItemDao.insert(FileItem(name = "c.mp4", folder = "/x", fileSize = 1233L, lastModified = 1234563L))
-                fileItemDao.insert(FileItem(name = "d.mp4", folder = "/x", fileSize = 1234L, lastModified = 1234564L))
-                fileItemDao.insert(FileItem(name = "e.mp4", folder = "/t", fileSize = 1235L, lastModified = 1234565L))
-                fileItemDao.insert(FileItem(name = "f.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L))
-                fileItemDao.insert(FileItem(name = "g.mp4", folder = "/x", fileSize = 1232L, lastModified = 1234562L))
-                fileItemDao.insert(FileItem(name = "h.mp4", folder = "/x", fileSize = 1233L, lastModified = 1234563L))
-                fileItemDao.insert(FileItem(name = "i.mp4", folder = "/x", fileSize = 1234L, lastModified = 1234564L))
-                fileItemDao.insert(FileItem(name = "j.mp4", folder = "/t", fileSize = 1235L, lastModified = 1234565L))
-                fileItemDao.insert(FileItem(name = "k.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L))
-                fileItemDao.insert(FileItem(name = "l.mp4", folder = "/x", fileSize = 1232L, lastModified = 1234562L))
-                fileItemDao.insert(FileItem(name = "m.mp4", folder = "/x", fileSize = 1233L, lastModified = 1234563L))
-                fileItemDao.insert(FileItem(name = "n.mp4", folder = "/x", fileSize = 1234L, lastModified = 1234564L))
-                fileItemDao.insert(FileItem(name = "o.mp4", folder = "/t", fileSize = 1235L, lastModified = 1234565L))
-                fileItemDao.insert(FileItem(name = "p.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L))
-                fileItemDao.insert(FileItem(name = "q.mp4", folder = "/x", fileSize = 1232L, lastModified = 1234562L))
-                fileItemDao.insert(FileItem(name = "r.mp4", folder = "/x", fileSize = 1233L, lastModified = 1234563L))
-                fileItemDao.insert(FileItem(name = "s.mp4", folder = "/x", fileSize = 1234L, lastModified = 1234564L))
-                fileItemDao.insert(FileItem(name = "t.mp4", folder = "/t", fileSize = 1235L, lastModified = 1234565L))
-                fileItemDao.insert(FileItem(name = "u.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L))
-                fileItemDao.insert(FileItem(name = "v.mp4", folder = "/x", fileSize = 1232L, lastModified = 1234562L))
-                fileItemDao.insert(FileItem(name = "w.mp4", folder = "/x", fileSize = 1233L, lastModified = 1234563L))
-                fileItemDao.insert(FileItem(name = "x.mp4", folder = "/x", fileSize = 1234L, lastModified = 1234564L))
-                fileItemDao.insert(FileItem(name = "y.mp4", folder = "/t", fileSize = 1235L, lastModified = 1234565L))
-                fileItemDao.insert(FileItem(name = "z.mp4", folder = "/x", fileSize = 1231L, lastModified = 1234561L))
                 return null
             }
         }

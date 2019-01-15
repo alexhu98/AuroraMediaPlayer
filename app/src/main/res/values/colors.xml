@@ -2,10 +2,10 @@
 <resources>
     <color name="app_background_color">#000000</color>
     <color name="menu_background_color">#222222</color>
-    <color name="toolbar_background_color">#333333</color>
+    <color name="toolbar_background_color">#222222</color>
     <color name="color_primary">#222222</color>
     <color name="color_primary_dark">#111111</color>
-    <color name="color_accent">#333333</color>
+    <color name="color_accent">#222222</color>
     <color name="drawer_text_background">#000000</color>
     <color name="drawer_text_background_checked">#141414</color>
     <color name="drawer_text_color">#FFFFFF</color>

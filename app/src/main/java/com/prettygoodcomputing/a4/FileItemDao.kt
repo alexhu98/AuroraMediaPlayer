@@ -9,14 +9,20 @@ interface FileItemDao {
     @Insert
     fun insert(fileItem: FileItem)
 
+    @Insert
+    fun insertAll(vararg fileItem: FileItem)
+
     @Update
     fun update(fileItem: FileItem)
+
+    @Update
+    fun updateAll(vararg fileItem: FileItem)
 
     @Delete
     fun delete(fileItem: FileItem)
 
-    @Query("DELETE FROM FileItem WHERE folder = :folder AND finished")
-    fun deleteAllFinished(folder: String)
+    @Delete
+    fun deleteAll(vararg fileItem: FileItem)
 
     @Query("SELECT * FROM FileItem")
     fun getAll(): LiveData<List<FileItem>>

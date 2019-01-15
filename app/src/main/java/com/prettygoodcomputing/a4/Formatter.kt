@@ -64,10 +64,11 @@ class Formatter {
         @JvmStatic
         fun formatProgress(fileItem: FileItem): String {
             var id = R.string.progress_none
-            with(fileItem) {
+            with (fileItem) {
                 if (finished) {
                     id = R.string.progress_100
-                } else if (position > 0 && duration > 0) {
+                }
+                else if (position > 0 && duration > 0) {
                     val progress = position * 100 / duration
                     id = when {
                         progress >= 75 -> R.string.progress_75
@@ -76,8 +77,6 @@ class Formatter {
                         position > 0 -> R.string.progress_1
                         else -> R.string.progress_0
                     }
-                } else {
-                    id = R.string.progress_none
                 }
             }
             return App.getContext().resources.getString(id)

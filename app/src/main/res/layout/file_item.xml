@@ -6,8 +6,6 @@
         <variable name="fileItem" type="com.prettygoodcomputing.a4.FileItem" />
     </data>
 
-    <!--android:background="@{Converters.convertColorToDrawable(fileItem.selected ? @color/selection_color : @color/app_background_color)}"-->
-
     <android.support.constraint.ConstraintLayout
             xmlns:android="http://schemas.android.com/apk/res/android"
             xmlns:app="http://schemas.android.com/apk/res-auto"

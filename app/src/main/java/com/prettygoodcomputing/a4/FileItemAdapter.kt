@@ -46,6 +46,7 @@ class FileItemAdapter(val activity: AppCompatActivity, val viewModel: MainViewMo
         }
 
         fun bindFileItem(fileItem: FileItem) {
+            Logger.v(TAG, "bindFileItem ${fileItem.name}")
             binding.fileItem = fileItem
         }
     }
