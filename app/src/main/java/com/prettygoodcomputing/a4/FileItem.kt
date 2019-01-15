@@ -7,6 +7,7 @@ import android.arch.persistence.room.PrimaryKey
 @Entity
 data class FileItem(
     @PrimaryKey(autoGenerate = true) var id: Int = 0,
+    var url: String = "",
     var name: String = "",
     var folder: String = "",
     var fileSize: Long = 0L,
