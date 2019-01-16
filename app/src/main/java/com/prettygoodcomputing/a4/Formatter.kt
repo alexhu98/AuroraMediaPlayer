@@ -12,7 +12,7 @@ class Formatter {
     companion object {
 
         private const val TAG = "Formatter"
-        private const val FOLDER_NAME_PADDING = 50
+        private const val FOLDER_NAME_PADDING = 30
 
         @JvmStatic
         fun formatFileSize(fileSize: Long): String {

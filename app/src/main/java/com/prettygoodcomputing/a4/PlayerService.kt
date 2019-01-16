@@ -9,13 +9,17 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.support.v4.app.NotificationCompat
 import android.support.v4.content.LocalBroadcastManager
+import android.support.v4.media.app.NotificationCompat.MediaStyle
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaBrowserCompat.MediaItem
 import android.support.v4.media.MediaBrowserServiceCompat
 import android.support.v4.media.MediaDescriptionCompat
 import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.MediaButtonReceiver
 import android.support.v4.media.session.MediaSessionCompat
+import android.support.v4.media.session.PlaybackStateCompat
 import android.text.TextUtils
 import com.google.android.exoplayer2.ExoPlayerFactory
 import com.google.android.exoplayer2.Player
@@ -29,53 +33,6 @@ import com.google.android.exoplayer2.ui.PlayerNotificationManager
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 
-/**
- * This class provides a MediaBrowser through a service. It exposes the media library to a browsing
- * client, through the onGetRoot and onLoadChildren methods. It also creates a MediaSession and
- * exposes it through its MediaSession.Token, which allows the client to create a MediaController
- * that connects to and send control commands to the MediaSession remotely. This is useful for
- * user interfaces that need to interact with your media session, like Android Auto. You can
- * (should) also use the same service from your app's UI, which gives a seamless playback
- * experience to the user.
- *
- *
- * To implement a MediaBrowserService, you need to:
- *
- *  *  Extend [MediaBrowserServiceCompat], implementing the media browsing
- * related methods [MediaBrowserServiceCompat.onGetRoot] and
- * [MediaBrowserServiceCompat.onLoadChildren];
- *
- *  *  In onCreate, start a new [MediaSessionCompat] and notify its parent
- * with the session's token [MediaBrowserServiceCompat.setSessionToken];
- *
- *  *  Set a callback on the [MediaSessionCompat.setCallback].
- * The callback will receive all the user's actions, like play, pause, etc;
- *
- *  *  Handle all the actual music playing using any method your app prefers (for example,
- * [android.media.MediaPlayer])
- *
- *  *  Update playbackState, "now playing" metadata and queue, using MediaSession proper methods
- * [MediaSessionCompat.setPlaybackState]
- * [MediaSessionCompat.setMetadata] and
- * [MediaSessionCompat.setQueue])
- *
- *  *  Declare and export the service in AndroidManifest with an intent receiver for the action
- * android.media.browse.MediaBrowserService
- *
- * To make your app compatible with Android Auto, you also need to:
- *
- *  *  Declare a meta-data tag in AndroidManifest.xml linking to a xml resource
- * with a &lt;automotiveApp&gt; root element. For a media app, this must include
- * an &lt;uses name="media"/&gt; element as a child.
- * For example, in AndroidManifest.xml:
- * &lt;meta-data android:name="com.google.android.gms.car.application"
- * android:resource="@xml/automotive_app_desc"/&gt;
- * And in res/values/automotive_app_desc.xml:
- * &lt;automotiveApp&gt;
- * &lt;uses name="media"/&gt;
- * &lt;/automotiveApp&gt;
- *
- */
 class PlayerService : MediaBrowserServiceCompat() {
 
     private lateinit var mediaSession: MediaSessionCompat
@@ -90,15 +47,15 @@ class PlayerService : MediaBrowserServiceCompat() {
 
     private lateinit var player: SimpleExoPlayer
     private var playerCreated = false
-    private lateinit var playerNotificationManager: PlayerNotificationManager
-    private lateinit var mediaSessionConnector: MediaSessionConnector
+//    private lateinit var playerNotificationManager: PlayerNotificationManager
+//    private lateinit var mediaSessionConnector: MediaSessionConnector
 
     override fun onCreate() {
         super.onCreate()
 
         createNotificationChannel()
 
-        mediaSession = MediaSessionCompat(this, "PlayerService")
+        mediaSession = MediaSessionCompat(this, APPLICATION_NAME)
         sessionToken = mediaSession.sessionToken
         mediaSession.setCallback(MediaSessionCallback())
         mediaSession.setFlags(
@@ -106,6 +63,8 @@ class PlayerService : MediaBrowserServiceCompat() {
             MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS or
             MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS
         )
+
+        createPlayer()
     }
 
     override fun onDestroy() {
@@ -160,7 +119,8 @@ class PlayerService : MediaBrowserServiceCompat() {
     private fun localBroadcast(callBackName: String, broadcastIntent: Intent): Boolean {
         broadcastIntent.action = PlayerService.ACTION_MEDIA_SESSION_CALL_BACK
         broadcastIntent.putExtra(PlayerService.PARAM_CALL_BACK, callBackName)
-        return LocalBroadcastManager.getInstance(context).sendBroadcast(broadcastIntent)
+        val broadcasted = LocalBroadcastManager.getInstance(context).sendBroadcast(broadcastIntent)
+        return broadcasted
     }
 
     private inner class MediaSessionCallback : MediaSessionCompat.Callback() {
@@ -221,10 +181,23 @@ class PlayerService : MediaBrowserServiceCompat() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!playerCreated) {
-            createPlayer()
-            startPlayer()
+        if (intent?.action != null) {
+            when (intent.action) {
+                "Hello" -> {}
+                else -> {
+                    MediaButtonReceiver.handleIntent(mediaSession, intent)
+                }
+            }
         }
+        val builder = NotificationCompat.Builder(this, CHANNEL_PLAYER_SERVICE)
+        builder.setContentTitle(APPLICATION_NAME)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setColor(resources.getColor(R.color.colorPrimaryDark, theme))
+            .setStyle(MediaStyle()
+                .setMediaSession(mediaSession.sessionToken)
+            )
+        val notification = builder.build()
+        startForeground(PLAYER_SERVICE_NOTIFICATION_ID, notification)
         return START_STICKY
     }
 
@@ -232,8 +205,26 @@ class PlayerService : MediaBrowserServiceCompat() {
         if (!playerCreated) {
             playerCreated = true
             player = ExoPlayerFactory.newSimpleInstance(context, DefaultTrackSelector())
+            mediaSession.isActive = true
 
-            playerNotificationManager = PlayerNotificationManager.createWithNotificationChannel(context, CHANNEL_PLAYER_SERVICE, R.string.app_name, PLAYER_SERVICE_NOTIFICATION_ID,
+            val commonActions = PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                    PlaybackStateCompat.ACTION_STOP or
+                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                    PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                    PlaybackStateCompat.ACTION_SEEK_TO or
+                    PlaybackStateCompat.ACTION_REWIND or
+                    PlaybackStateCompat.ACTION_FAST_FORWARD or
+                    PlaybackStateCompat.ACTION_PLAY_FROM_URI or
+                    PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or
+                    PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH or
+                    PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM
+            val stateBuilder = PlaybackStateCompat.Builder()
+            stateBuilder.setActions(PlaybackStateCompat.ACTION_PAUSE or commonActions)
+            stateBuilder.setState(PlaybackStateCompat.STATE_PLAYING, 123, 1.0f)
+            mediaSession.setPlaybackState(stateBuilder.build())
+
+/*
+                    playerNotificationManager = PlayerNotificationManager.createWithNotificationChannel(context, CHANNEL_PLAYER_SERVICE, R.string.app_name, PLAYER_SERVICE_NOTIFICATION_ID,
                 object: PlayerNotificationManager.MediaDescriptionAdapter {
                     override fun createCurrentContentIntent(player: Player?): PendingIntent? {
                         val intent = Intent(context, MainActivity::class.java)
@@ -270,26 +261,28 @@ class PlayerService : MediaBrowserServiceCompat() {
             })
             playerNotificationManager.setColor(R.color.colorPrimaryDark)
             playerNotificationManager.setSmallIcon(R.mipmap.ic_launcher)
-            playerNotificationManager.setPlayer(player)
+*/
+//            playerNotificationManager.setPlayer(player)
 
-            mediaSessionConnector = MediaSessionConnector(mediaSession)
-            mediaSessionConnector.setQueueNavigator(object: TimelineQueueNavigator(mediaSession) {
+//            mediaSessionConnector = MediaSessionConnector(mediaSession)
 
-                override fun getMediaDescription(player: Player?, windowIndex: Int): MediaDescriptionCompat {
-                    val title = when (windowIndex) {
-                        0, 2, 4, 6 -> "mpthreetest.mp3 " + windowIndex.toString()
-                        else -> "crowd-cheering.mp3 " + windowIndex.toString()
-                    }
-                    val mediaDescription = MediaDescriptionCompat.Builder()
-                        .setMediaId(title)
-                        .setTitle(title)
-                        .setDescription(title)
-                        .build()
-                    return mediaDescription
-
-                }
-            })
-            mediaSessionConnector.setPlayer(player, null)
+//            mediaSessionConnector.setQueueNavigator(object: TimelineQueueNavigator(mediaSession) {
+//
+//                override fun getMediaDescription(player: Player?, windowIndex: Int): MediaDescriptionCompat {
+//                    val title = when (windowIndex) {
+//                        0, 2, 4, 6 -> "mpthreetest.mp3 " + windowIndex.toString()
+//                        else -> "crowd-cheering.mp3 " + windowIndex.toString()
+//                    }
+//                    val mediaDescription = MediaDescriptionCompat.Builder()
+//                        .setMediaId(title)
+//                        .setTitle(title)
+//                        .setDescription(title)
+//                        .build()
+//                    return mediaDescription
+//
+//                }
+//            })
+//            mediaSessionConnector.setPlayer(player, null)
         }
     }
 
@@ -317,12 +310,14 @@ class PlayerService : MediaBrowserServiceCompat() {
 
     private fun releasePlayer() {
         if (playerCreated) {
-            playerNotificationManager.setPlayer(null)
+//            playerNotificationManager.setPlayer(null)
+            player.playWhenReady = false
+            player.stop()
             player.release()
             playerCreated = false
-            mediaSessionConnector.setPlayer(null, null)
-            mediaSession.isActive = false
-            mediaSession.release()
+//            mediaSessionConnector.setPlayer(null, null)
+//            mediaSession.isActive = false
+//            mediaSession.release()
         }
 
     }

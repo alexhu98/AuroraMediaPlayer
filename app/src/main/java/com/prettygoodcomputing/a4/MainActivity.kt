@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity(),
         setUpNavigationDrawer()
         setUpEasyPermissions()
 
-//        startForegroundService(Intent(this, PlayerService::class.java))
+        startForegroundService(Intent(this, PlayerService::class.java))
     }
 
     override fun onDestroy() {
@@ -224,19 +224,23 @@ class MainActivity : AppCompatActivity(),
         EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this)
     }
 
+    override fun onStart() {
+        super.onStart()
+        registerLocalBroadcastReceiver()
+    }
+
     override fun onResume() {
         super.onResume()
         binding.toolbar.title = Formatter.formatFolderName(repository.getCurrentFolder())
-        registerLocalBroadcastReceiver()
     }
 
     override fun onPause() {
         super.onPause()
-        unregisterLocalBroadcastReceiver()
     }
 
     override fun onStop() {
         super.onStop()
+        unregisterLocalBroadcastReceiver()
         releasePlayer()
     }
 
