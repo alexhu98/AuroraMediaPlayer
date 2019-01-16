@@ -78,7 +78,7 @@ class App: Application {
 
         fun enableBluetooth() {
             val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
-            if (bluetoothAdapter.state == BluetoothAdapter.STATE_OFF) {
+            if (bluetoothAdapter != null && bluetoothAdapter.state == BluetoothAdapter.STATE_OFF) {
                 bluetoothAdapter.enable()
             }
         }

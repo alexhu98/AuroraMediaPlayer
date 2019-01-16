@@ -2,6 +2,8 @@ package com.prettygoodcomputing.a4
 
 import android.app.Application
 import android.arch.lifecycle.AndroidViewModel
+import android.arch.lifecycle.MutableLiveData
+import android.view.View
 
 class MainViewModel(application: Application): AndroidViewModel(application) {
 
@@ -9,6 +11,17 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
 
     val repository by lazy { App.getAppRepository() }
     var singleSelection = true
+
+    private lateinit var currentFileItem: FileItem
+    val playerInfoVisibility = MutableLiveData<Int>().apply { value = View.VISIBLE }
+    val playerInfoFile = MutableLiveData<String>()
+    val playerInfoTime = MutableLiveData<String>()
+    val playerProgressBarValue = MutableLiveData<Int>().apply { value = 0}
+    val playerProgressBarMax = MutableLiveData<Int>().apply { value = 0}
+    val playerInfoBar = MutableLiveData<String>()
+    val playerInfoClock = MutableLiveData<String>()
+    var videoWidth = 0
+    var videoHeight = 0
 
     fun switchFolder(direction: Int) {
         repository.getAllFolderItems().value?.let { folderItems ->
@@ -136,5 +149,47 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
             repository.update(it)
             repository.queryFileItems(it.url, fieldName)
         }
+    }
+
+    fun setCurrentFileItem(fileItem: FileItem) {
+        currentFileItem = fileItem
+        fileItem?.let {
+            setPlayerInfoFile(it.name)
+        }
+        setVideoSize(0, 0)
+    }
+
+    fun getCurrentFileItem(): FileItem {
+        return currentFileItem
+    }
+
+    fun setPlayerInfoVisibility(visibility: Int) {
+        playerInfoVisibility.value = visibility
+    }
+
+    fun setPlayerInfoFile(info: String) {
+        playerInfoFile.value = info
+    }
+
+    fun setPlayerInfoTime(info: String) {
+        playerInfoTime.value = info
+    }
+
+    fun setProgressBarInfo(progress: Int, max: Int) {
+        playerProgressBarValue.value = progress
+        playerProgressBarMax.value = max
+    }
+
+    fun setPlayerInfoBar(info: String) {
+        playerInfoBar.value = info
+    }
+
+    fun setPlayerInfoClock(info: String) {
+        playerInfoClock.value = info
+    }
+
+    fun setVideoSize(width: Int, height: Int) {
+        videoWidth = width
+        videoHeight = height
     }
 }

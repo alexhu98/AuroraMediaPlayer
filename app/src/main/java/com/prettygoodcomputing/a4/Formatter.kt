@@ -9,9 +9,10 @@ import java.net.URLDecoder
 
 class Formatter {
 
-    private val TAG = "Formatter"
-
     companion object {
+
+        private const val TAG = "Formatter"
+        private const val FOLDER_NAME_PADDING = 50
 
         @JvmStatic
         fun formatFileSize(fileSize: Long): String {
@@ -47,7 +48,7 @@ class Formatter {
             if (tokens.size > 1) {
                 name = tokens[1]
             }
-            return name
+            return name + " ".repeat(FOLDER_NAME_PADDING - name.length)
         }
 
         @JvmStatic
