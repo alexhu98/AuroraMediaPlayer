@@ -104,11 +104,11 @@ class PlayerService : MediaBrowserServiceCompat() {
             fileItems.forEachIndexed { index, fileItem ->
                 val metadata = MediaMetadataCompat.Builder()
                     .putString(MediaMetadataCompat.METADATA_KEY_TITLE, fileItem.name)
-                    .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, fileItem.name)
-                    .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, fileItem.name)
+                    .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, fileItem.url)
+                    .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, fileItem.url)
                     .putLong(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER, (index + 1).toLong())
                     .putLong(MediaMetadataCompat.METADATA_KEY_NUM_TRACKS, fileItems.size.toLong())
-                    .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, 5000L)
+                    .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, fileItem.duration)
                     .build()
                 mediaItems.add(MediaBrowserCompat.MediaItem(metadata.description, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE))
             }

@@ -222,6 +222,8 @@ class AppRepository(val application: Application) {
                 // TODO: Clean up obsolete file items
             }
             else {
+                // first look for new files
+                val mediaInfoRetriever = MediaInfoRetriever()
                 val urlList = mutableListOf<String>()
                 val updatedFileItems = mutableListOf<FileItem>()
                 listFiles.forEach { file ->
@@ -231,17 +233,25 @@ class AppRepository(val application: Application) {
                     if (acceptExtension(ext)) {
                         urlList.add(url)
                         val fileItem = getFileItem(url)
-                        if (fileItem.fileSize == 0L || fileItem.lastModified == 0L || fileItem.deleted) {
-                            val fileItemCopy = fileItem.copy()
-                            fileItemCopy.fileSize = file.length()
-                            fileItemCopy.lastModified = file.lastModified()
-                            fileItemCopy.deleted = false
-                            fileItemCopy.finished = false
-                            updatedFileItems.add(fileItemCopy)
+                        if (fileItem.fileSize == 0L || fileItem.lastModified == 0L || fileItem.deleted || fileItem.duration == 0L) {
+                            fileItem.copy().apply {
+                                fileSize = file.length()
+                                lastModified = file.lastModified()
+                                deleted = false
+                                finished = false
+                                if (duration == 0L) {
+                                    duration = mediaInfoRetriever.getDuration(url)
+                                    if (duration == 0L) {
+                                        error = true
+                                    }
+                                }
+                                updatedFileItems.add(this)
+                            }
                         }
                     }
                 }
                 update(updatedFileItems)
+
                 // remove the obsolete ones that no longer exists
                 val deletedFileItems = mutableListOf<FileItem>()
                 allFileItems.value?.forEach {
