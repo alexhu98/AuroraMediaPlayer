@@ -52,6 +52,9 @@ class MainActivity : AppCompatActivity(),
     private val REQUEST_NAVIGATE_SETTINGS = 101
     private val REQUEST_PERMISSIONS = 102
 
+    private val NEAR_BEGINNING = 60 * 1000L
+    private val NEAR_ENDING = 2 * 60 * 1000L
+
     private val SWIPE_MIN_DISTANCE_DP = 48
     private val SWIPE_THRESHOLD_VELOCITY_DP = 36
     private val SWIPE_PLAY_NEXT_DISTANCE = 64
@@ -446,12 +449,28 @@ class MainActivity : AppCompatActivity(),
         }
     }
 
+    fun nearBeginning(): Boolean {
+        return nearBeginning(playerController.getCurrentPosition())
+    }
+
+    fun nearEnding(): Boolean {
+        return nearEnding(playerController.getCurrentPosition(), playerController.getDuration())
+    }
+
+    fun nearBeginning(position: Long): Boolean {
+        return position < NEAR_BEGINNING
+    }
+
+    fun nearEnding(position: Long, duration: Long): Boolean {
+        return position > 0 && duration > 0 && position + NEAR_ENDING > duration
+    }
+
     private fun updateControls() {
         val currentTime = SystemClock.elapsedRealtime()
         val visibility = when {
             playerController.isSeekRepeat() -> View.VISIBLE
-            playerController.nearBeginning() -> View.VISIBLE
-            playerController.nearEnding() -> View.VISIBLE
+            nearBeginning() -> View.VISIBLE
+            nearEnding() -> View.VISIBLE
             !playerController.isPlaying() -> View.VISIBLE
             currentTime - showControlStartTime > UPDATE_CONTROLS_SHOW_TIME -> View.INVISIBLE
             else -> View.VISIBLE
@@ -471,6 +490,13 @@ class MainActivity : AppCompatActivity(),
             showControls()
             updateAllInfo()
         }
+    }
+
+    private fun playFromMediaId(mediaId: String) {
+        if (isPlayerVisible()) {
+            stopPlayer()
+        }
+        startPlayer(repository.getFileItem(mediaId))
     }
 
     private fun seekTo(progress: Long) {
@@ -503,6 +529,50 @@ class MainActivity : AppCompatActivity(),
         playerController.release()
         binding.mainLayout.visibility = View.VISIBLE
         binding.playerViewLayout.visibility = View.GONE
+    }
+
+    private fun isPlayerVisible(): Boolean {
+        return binding.playerViewLayout.visibility == View.VISIBLE
+    }
+
+    private fun seekForward() {
+        Logger.enter(TAG, "seekForward()")
+        showControls()
+        val shouldUpdateInfo = !playerController.isPlaying()
+        playerController.seekForward()
+        if (shouldUpdateInfo) {
+            updateAllInfo()
+        }
+        Logger.exit(TAG, "seekForward()")
+    }
+
+    private fun seekForwardRepeat(): Boolean {
+        showControls()
+        val shouldUpdateInfo = !playerController.isPlaying()
+        playerController.seekForwardRepeat()
+        if (shouldUpdateInfo) {
+            updateAllInfo()
+        }
+        return true
+    }
+
+    private fun seekBackward() {
+        showControls()
+        val shouldUpdateInfo = !playerController.isPlaying()
+        playerController.seekBackward()
+        if (shouldUpdateInfo) {
+            updateAllInfo()
+        }
+    }
+
+    private fun seekBackwardRepeat(): Boolean {
+        showControls()
+        val shouldUpdateInfo = !playerController.isPlaying()
+        playerController.seekBackwardRepeat()
+        if (shouldUpdateInfo) {
+            updateAllInfo()
+        }
+        return true
     }
 
     private fun updateAllInfo() {
@@ -539,8 +609,8 @@ class MainActivity : AppCompatActivity(),
 
     private fun updateProgress() {
         handler.removeCallbacks(updateProgressAction);
-        viewModel.setPlayerInfoTime(Formatter.formatTime(getPlayer().currentPosition) + " " + Formatter.formatTime(getPlayer().duration))
-        viewModel.setProgressBarInfo((getPlayer().currentPosition / 1000L).toInt(), (getPlayer().duration / 1000L).toInt())
+        viewModel.setPlayerInfoTime(Formatter.formatTime(playerController.getCurrentPosition()) + " " + Formatter.formatTime(playerController.getDuration()))
+        viewModel.setProgressBarInfo((playerController.getCurrentPosition() / 1000L).toInt(), (playerController.getDuration() / 1000L).toInt())
 
         val currentTime = SystemClock.elapsedRealtime()
         if (currentTime - updateInfoStartTime > UPDATE_INFO_SHOW_TIME) {
@@ -574,28 +644,21 @@ class MainActivity : AppCompatActivity(),
     private fun registerLocalBroadcastReceiver() {
         localBroadcastReceiver = object: BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent != null) {
-                    when (intent.action) {
-                        PlayerService.ACTION_MEDIA_SESSION_CALLBACK -> {
-                            val callbackName = intent.extras?.getString(PlayerService.PARAM_CALLBACK) ?: ""
-                            val mediaId = intent.extras?.getString(PlayerService.PARAM_MEDIA_ID) ?: ""
-                            val query = intent.extras?.getString(PlayerService.PARAM_QUERY) ?: ""
-                            val position = intent.extras?.getLong(PlayerService.PARAM_POSITION, 0L) ?: 0L
-                            val queueId = intent.extras?.getLong(PlayerService.PARAM_QUEUE_ID, 0L) ?: 0L
+                if (intent?.action == PlayerService.ACTION_MEDIA_SESSION_CALLBACK) {
+                    val callbackName = intent.extras?.getString(PlayerService.PARAM_CALLBACK) ?: ""
+                    val mediaId = intent.extras?.getString(PlayerService.PARAM_MEDIA_ID) ?: ""
+                    val query = intent.extras?.getString(PlayerService.PARAM_QUERY) ?: ""
+                    val position = intent.extras?.getLong(PlayerService.PARAM_POSITION, 0L) ?: 0L
+                    val queueId = intent.extras?.getLong(PlayerService.PARAM_QUEUE_ID, 0L) ?: 0L
 
-                            Toast.makeText(this@MainActivity, "MA: $callbackName $mediaId", Toast.LENGTH_LONG).show()
-                            when (callbackName) {
-                                "onPlayFromMediaId" -> {} // mediaId
-                                "onPlayFromSearch" -> {} // query
-                                "onPlay" -> resumePlayer()
-                                "onPause" -> pausePlayer()
-                                "onStop" -> stopPlayer()
-                                "onSkipToNext" -> {}
-                                "onSkipToPrevious" -> {}
-                                "onSeekTo" -> {} // position
-                                "onSkipToQueueItem" -> {} // queueId
-                            }
-                        }
+                    Toast.makeText(context, "MA: $callbackName $mediaId", Toast.LENGTH_LONG).show()
+                    when (callbackName) {
+                        "onPlayFromMediaId" -> playFromMediaId(mediaId)
+                        "onPlay" -> resumePlayer()
+                        "onPause" -> pausePlayer()
+                        "onStop" -> stopPlayer()
+                        "onSkipToNext" -> seekForward()
+                        "onSkipToPrevious" -> seekBackward()
                     }
                 }
             }

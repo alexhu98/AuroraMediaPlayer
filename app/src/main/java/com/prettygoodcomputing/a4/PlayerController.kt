@@ -27,14 +27,28 @@ class PlayerController(val context: Context, val TAG: String)
     : AudioManager.OnAudioFocusChangeListener {
 
     private val LOWER_VOLUME = 0.3f
+    private val SEEK_FORWARD_OFFSET = 30 * 1000
+    private val SEEK_BACKWARD_OFFSET = 25 * 1000
+    private val SEEK_REPEAT_DELAY_SHORT = 1L
+    private val SEEK_REPEAT_DELAY_LONG = 1000L
     private val NEAR_BEGINNING = 10 * 1000L
-    private val NEAR_ENDING = 2 * 60 * 1000L
+    private val NEAR_ENDING = 10 * 1000L
+    private val IS_ENDING = 3 * 1000L
+    private val MAX_SEEK_FORWARD_COUNT = 5
+    private val MAX_SEEK_BACKWARD_COUNT = 2
 
     private val repository by lazy { App.getAppRepository() }
     private lateinit var currentFileItem: FileItem
     private val playerEventListener = PlayerEventListener()
     private lateinit var player: SimpleExoPlayer
     private var playerCreated = false
+
+    private var seekForwardCount = 0
+    private var seekBackwardCount = 0
+    private var seekReady = true
+    private var seekRepeat = false
+    private var seekRepeating = false
+    var interactive = false
 
     private var audioFocusRequest: AudioFocusRequest? = null
     private var audioFocusLostTime = 0L
@@ -77,6 +91,11 @@ class PlayerController(val context: Context, val TAG: String)
         val canStart = requestAudioFocusGranted()
         if (canStart) {
             currentFileItem = fileItem
+
+            val broadcastIntent = Intent()
+            broadcastIntent.putExtra(PlayerService.PARAM_MEDIA_ID, currentFileItem.url)
+            localBroadcast("onStartPlayer", broadcastIntent)
+
             val mediaSource = buildMediaSource(currentFileItem.url)
             player.prepare(mediaSource, true, false)
             var startPosition = calculateStartPosition(currentFileItem)
@@ -120,6 +139,120 @@ class PlayerController(val context: Context, val TAG: String)
 
     fun seekTo(position: Long) {
         player.seekTo(position)
+
+        val broadcastIntent = Intent()
+        broadcastIntent.putExtra(PlayerService.PARAM_PLAYBACK_STATE, PlaybackStateCompat.STATE_PLAYING)
+        broadcastIntent.putExtra(PlayerService.PARAM_POSITION, position)
+        localBroadcast("onPlaybackState", broadcastIntent)
+    }
+
+    fun seekForward(offset: Int = SEEK_FORWARD_OFFSET) {
+        Logger.enter(TAG, "seekForward()")
+        resumePlayer()
+        if (!seekRepeating) {
+            interactive = true
+            cancelSeekRepeat()
+        }
+        seekBackwardCount = 0
+        if (!seekReady) {
+            seekForwardCount = Math.min(MAX_SEEK_FORWARD_COUNT, seekForwardCount + 1)
+            Logger.exit(TAG, "seekForward() seekForwardCount = $seekForwardCount")
+        }
+        else {
+            val duration = getDuration()
+            if (duration > 0) {
+                val currentPosition = getCurrentPosition()
+                var newPosition = currentPosition
+                if (nearEnding(newPosition, duration)) {
+                    // mark this file as finished
+//                    val fileItem = DataStore.getFileItem(mUrl)
+//                    fileItem.position = currentPosition
+//                    fileItem.finished = true
+
+                    // if already near the end, then skip to the next track
+//                    if (seekRepeat && TimeProfile.nightTimeInteractiveRequired() && !interactive) {
+//                        pause()
+//                        mPlayerControlListener?.onPlayerStopped()
+//                        Logger.v(TAG, "seekForward() finished because not interactive")
+//                    }
+//                    else {
+//                        playNext()
+//                        Logger.v(TAG, "seekForward() playNext")
+//                    }
+                    Logger.exit(TAG, "seekForward()")
+                }
+                else {
+                    newPosition += offset
+                    if (nearEnding(newPosition, duration)) {
+                        newPosition = duration - NEAR_ENDING
+                        Logger.v(TAG, "seekForward() near end, back up a little")
+                    }
+                    if (newPosition < 0) {
+                        newPosition = 0
+                    }
+                    seekTo(newPosition)
+                    Logger.exit(TAG, "seekForward() newPosition = $newPosition")
+                }
+            }
+        }
+    }
+
+    fun seekForwardRepeat() {
+        Logger.enter(TAG, "seekForwardRepeat()")
+        cancelPendingSeek()
+        seekForwardCount = 1
+        seekRepeat = true
+        seekRepeating = true
+        seekForward()
+        seekRepeating = false
+        Logger.exit(TAG, "seekForwardRepeat()")
+    }
+
+    fun seekBackward() {
+        Logger.enter(TAG, "seekBackward() seekReady = $seekReady, seekBackwardCount = $seekBackwardCount")
+        resumePlayer()
+        if (!seekRepeating) {
+            interactive = true
+            cancelSeekRepeat()
+        }
+        seekForwardCount = 0
+        if (!seekReady) {
+            seekBackwardCount = Math.min(MAX_SEEK_BACKWARD_COUNT, seekBackwardCount + 1)
+            Logger.exit(TAG, "seekBackward() seekBackwardCount = $seekBackwardCount")
+        }
+        else {
+            val currentPosition = getCurrentPosition()
+            var newPosition = currentPosition - SEEK_BACKWARD_OFFSET
+            if (newPosition < 0) {
+                newPosition = 0
+            }
+            seekTo(newPosition)
+            Logger.exit(TAG, "seekBackward() newPosition = $newPosition")
+        }
+    }
+
+    fun seekBackwardRepeat() {
+        Logger.enter(TAG, "seekBackwardRepeat()")
+        seekBackwardCount = 1
+        seekRepeat = true
+        seekRepeating = true
+        seekBackward()
+        seekRepeating = false
+        Logger.exit(TAG, "seekBackwardRepeat()")
+    }
+
+    fun isSeekRepeat(): Boolean {
+        return seekRepeat
+    }
+
+    fun cancelSeekRepeat() {
+        seekRepeat = false
+    }
+
+    fun cancelPendingSeek() {
+        seekForwardCount = 0
+        seekBackwardCount = 0
+        seekRepeat = false
     }
 
     fun togglePausePlayer(): Boolean {
@@ -184,10 +317,6 @@ class PlayerController(val context: Context, val TAG: String)
         return player.playbackState != Player.STATE_ENDED
                 && player.playbackState != Player.STATE_IDLE
                 && player.playWhenReady
-    }
-
-    fun isSeekRepeat(): Boolean {
-        return false
     }
 
     fun nearBeginning(): Boolean {

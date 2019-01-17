@@ -27,6 +27,7 @@
     <string name="media_pause">Pause</string>
     <string name="media_paused">Paused</string>
     <string name="media_stop">Stop</string>
+    <string name="media_exit">Exit</string>
     <string name="menu_divider_thick">\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501</string>
     <string name="menu_divider">\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF\u23AF</string>
     <string name="menu_divider_short">\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA\u23BA</string>
