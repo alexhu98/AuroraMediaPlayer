@@ -82,7 +82,6 @@ class MainActivity : AppCompatActivity(),
     private var message = ""
 
     private val playerController by lazy { PlayerController(context, "MA.PlayerController") }
-    private val player by lazy { playerController.getPlayer() }
     private val playerEventListener = PlayerEventListener()
     private val playerVideoListener = PlayerVideoListener()
     private val playerSeekBarChangeListener = PlayerSeekBarChangeListener()
@@ -395,12 +394,16 @@ class MainActivity : AppCompatActivity(),
         Logger.exit(TAG, "onActivityResult() requestCode = $requestCode, resultCode = $resultCode")
     }
 
+    private fun getPlayer(): SimpleExoPlayer {
+        return playerController.getPlayer()
+    }
+
     private fun setUpPlayerView() {
-        player.addListener(playerEventListener)
-        player.addVideoListener(playerVideoListener)
+//        getPlayer().addListener(playerEventListener)
+//        getPlayer().addVideoListener(playerVideoListener)
 
         binding.playerView.useController = false
-        binding.playerView.player = player
+        binding.playerView.player = getPlayer()
 
         binding.timelineBar.setOnSeekBarChangeListener(playerSeekBarChangeListener)
 
@@ -461,6 +464,7 @@ class MainActivity : AppCompatActivity(),
 
     private fun startPlayer(fileItem: FileItem) {
         if (playerController.startPlayer(fileItem)) {
+            binding.playerView.player = getPlayer()
             binding.mainLayout.visibility = View.GONE
             binding.playerViewLayout.visibility = View.VISIBLE
             viewModel.setCurrentFileItem(fileItem)
@@ -496,6 +500,7 @@ class MainActivity : AppCompatActivity(),
         handler.removeCallbacks(updateClockAction);
         handler.removeCallbacks(updateProgressAction);
         playerController.stopPlayer()
+        playerController.release()
         binding.mainLayout.visibility = View.VISIBLE
         binding.playerViewLayout.visibility = View.GONE
     }
@@ -534,8 +539,8 @@ class MainActivity : AppCompatActivity(),
 
     private fun updateProgress() {
         handler.removeCallbacks(updateProgressAction);
-        viewModel.setPlayerInfoTime(Formatter.formatTime(player.currentPosition) + " " + Formatter.formatTime(player.duration))
-        viewModel.setProgressBarInfo((player.currentPosition / 1000L).toInt(), (player.duration / 1000L).toInt())
+        viewModel.setPlayerInfoTime(Formatter.formatTime(getPlayer().currentPosition) + " " + Formatter.formatTime(getPlayer().duration))
+        viewModel.setProgressBarInfo((getPlayer().currentPosition / 1000L).toInt(), (getPlayer().duration / 1000L).toInt())
 
         val currentTime = SystemClock.elapsedRealtime()
         if (currentTime - updateInfoStartTime > UPDATE_INFO_SHOW_TIME) {

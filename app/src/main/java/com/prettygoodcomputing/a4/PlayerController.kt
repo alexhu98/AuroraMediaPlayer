@@ -33,11 +33,8 @@ class PlayerController(val context: Context, val TAG: String)
     private val repository by lazy { App.getAppRepository() }
     private lateinit var currentFileItem: FileItem
     private val playerEventListener = PlayerEventListener()
-    private val player = ExoPlayerFactory.newSimpleInstance(context, DefaultTrackSelector()).apply {
-        addListener(playerEventListener)
-        repeatMode = Player.REPEAT_MODE_OFF
-        setSeekParameters(SeekParameters.NEXT_SYNC)
-    }
+    private lateinit var player: SimpleExoPlayer
+    private var playerCreated = false
 
     private var audioFocusRequest: AudioFocusRequest? = null
     private var audioFocusLostTime = 0L
@@ -45,20 +42,40 @@ class PlayerController(val context: Context, val TAG: String)
     private val audioNoisyReceiver = AudioNoisyReceiver()
     private var audioNoisyReceiverRegistered = false
 
+    init {
+        createPlayer()
+    }
+
     fun getPlayer(): SimpleExoPlayer {
+        return createPlayer()
+    }
+
+    fun createPlayer(): SimpleExoPlayer {
+        if (!playerCreated) {
+            player = ExoPlayerFactory.newSimpleInstance(context, DefaultTrackSelector()).apply {
+                addListener(playerEventListener)
+                repeatMode = Player.REPEAT_MODE_OFF
+                setSeekParameters(SeekParameters.NEXT_SYNC)
+            }
+            playerCreated = true
+        }
         return player
     }
 
     fun release() {
         unregisterAudioNoisyReceiver()
-        stopPlayer()
-        player.removeListener(playerEventListener)
-        player.release()
+        if (playerCreated) {
+            player.playWhenReady = false
+            player.removeListener(playerEventListener)
+            player.release()
+        }
+        playerCreated = false
     }
 
     fun startPlayer(fileItem: FileItem): Boolean {
-        val started = requestAudioFocusGranted()
-        if (started) {
+        createPlayer()
+        val canStart = requestAudioFocusGranted()
+        if (canStart) {
             currentFileItem = fileItem
             val mediaSource = buildMediaSource(currentFileItem.url)
             player.prepare(mediaSource, true, false)
@@ -75,7 +92,7 @@ class PlayerController(val context: Context, val TAG: String)
             resumePlayer()
             registerAudioNoisyReceiver()
         }
-        return started
+        return canStart
     }
 
     private fun buildMediaSource(url: String): MediaSource {
@@ -140,7 +157,7 @@ class PlayerController(val context: Context, val TAG: String)
             repository.update(this)
         }
         player.playWhenReady = false
-//        player.stop()
+        player.stop(false)
         abandonAudioFocusRequest()
 
         val broadcastIntent = Intent()
