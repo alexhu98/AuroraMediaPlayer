@@ -8,6 +8,7 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.net.Uri
+import android.os.Handler
 import android.os.SystemClock
 import android.support.v4.content.LocalBroadcastManager
 import android.support.v4.media.session.PlaybackStateCompat
@@ -40,15 +41,16 @@ class PlayerController(val context: Context, val TAG: String)
     private val repository by lazy { App.getAppRepository() }
     private lateinit var currentFileItem: FileItem
     private val playerEventListener = PlayerEventListener()
+    private val playerVideoListener = PlayerVideoListener()
     private lateinit var player: SimpleExoPlayer
     private var playerCreated = false
 
+    private var handler = Handler()
     private var seekForwardCount = 0
     private var seekBackwardCount = 0
     private var seekReady = true
     private var seekRepeat = false
     private var seekRepeating = false
-    var interactive = false
 
     private var audioFocusRequest: AudioFocusRequest? = null
     private var audioFocusLostTime = 0L
@@ -56,9 +58,11 @@ class PlayerController(val context: Context, val TAG: String)
     private val audioNoisyReceiver = AudioNoisyReceiver()
     private var audioNoisyReceiverRegistered = false
 
-    init {
-        createPlayer()
-    }
+    private val processPendingSeekAction = Runnable { processPendingSeek() }
+
+    var interactive = false
+    var videoWidth = 0
+    var videoHeight = 0
 
     fun getPlayer(): SimpleExoPlayer {
         return createPlayer()
@@ -66,8 +70,11 @@ class PlayerController(val context: Context, val TAG: String)
 
     fun createPlayer(): SimpleExoPlayer {
         if (!playerCreated) {
+            videoWidth = 0
+            videoHeight = 0
             player = ExoPlayerFactory.newSimpleInstance(context, DefaultTrackSelector()).apply {
                 addListener(playerEventListener)
+                addVideoListener(playerVideoListener)
                 repeatMode = Player.REPEAT_MODE_OFF
                 setSeekParameters(SeekParameters.NEXT_SYNC)
             }
@@ -81,6 +88,7 @@ class PlayerController(val context: Context, val TAG: String)
         if (playerCreated) {
             player.playWhenReady = false
             player.removeListener(playerEventListener)
+            player.removeVideoListener(playerVideoListener)
             player.release()
         }
         playerCreated = false
@@ -114,6 +122,13 @@ class PlayerController(val context: Context, val TAG: String)
         return canStart
     }
 
+    fun playNext() {
+
+    }
+
+    fun playPrevious() {
+    }
+
     private fun buildMediaSource(url: String): MediaSource {
         Logger.enter(TAG, "buildMediaSource() starting url = $url")
         val dataSourceFactory = DefaultDataSourceFactory(context, Util.getUserAgent(context, context.resources.getString(R.string.app_name)));
@@ -139,11 +154,7 @@ class PlayerController(val context: Context, val TAG: String)
 
     fun seekTo(position: Long) {
         player.seekTo(position)
-
-        val broadcastIntent = Intent()
-        broadcastIntent.putExtra(PlayerService.PARAM_PLAYBACK_STATE, PlaybackStateCompat.STATE_PLAYING)
-        broadcastIntent.putExtra(PlayerService.PARAM_POSITION, position)
-        localBroadcast("onPlaybackState", broadcastIntent)
+        localBroadcastPlaybackState(PlaybackStateCompat.STATE_PLAYING)
     }
 
     fun seekForward(offset: Int = SEEK_FORWARD_OFFSET) {
@@ -249,7 +260,35 @@ class PlayerController(val context: Context, val TAG: String)
         seekRepeat = false
     }
 
+    private fun schedulePendingSeek() {
+        Logger.enter(TAG, "schedulePendingSeek() seekReady = $seekReady, seekForwardCount = $seekForwardCount, seekBackwardCount = $seekBackwardCount")
+        handler.removeCallbacks(processPendingSeekAction)
+        handler.postDelayed(processPendingSeekAction, if (seekRepeat) SEEK_REPEAT_DELAY_LONG else SEEK_REPEAT_DELAY_SHORT)
+        Logger.exit(TAG, "schedulePendingSeek()")
+    }
+
+    private fun processPendingSeek() {
+        Logger.enter(TAG, "processPendingSeek() seekReady = $seekReady, mSeekForwardCount = $seekForwardCount, mSeekBackwardCount = $seekBackwardCount")
+        seekReady = true
+        seekRepeating = true
+        if (seekForwardCount > 0) {
+            if (!seekRepeat) {
+                seekForwardCount--
+            }
+            seekForward()
+        }
+        else if (seekBackwardCount > 0) {
+            if (!seekRepeat) {
+                seekBackwardCount--
+            }
+            seekBackward()
+        }
+        seekRepeating = false
+        Logger.exit(TAG, "processPendingSeek() seekReady = $seekReady, mSeekForwardCount = $seekForwardCount, mSeekBackwardCount = $seekBackwardCount")
+    }
+
     fun cancelPendingSeek() {
+        handler.removeCallbacks(processPendingSeekAction)
         seekForwardCount = 0
         seekBackwardCount = 0
         seekRepeat = false
@@ -267,21 +306,13 @@ class PlayerController(val context: Context, val TAG: String)
 
     fun resumePlayer() {
         player.playWhenReady = true
-
-        val broadcastIntent = Intent()
-        broadcastIntent.putExtra(PlayerService.PARAM_PLAYBACK_STATE, PlaybackStateCompat.STATE_PLAYING)
-        broadcastIntent.putExtra(PlayerService.PARAM_POSITION, getCurrentPosition())
-        localBroadcast("onPlaybackState", broadcastIntent)
+        localBroadcastPlaybackState()
     }
 
     fun pausePlayer() {
         player.playWhenReady = false
         abandonAudioFocusRequest()
-
-        val broadcastIntent = Intent()
-        broadcastIntent.putExtra(PlayerService.PARAM_PLAYBACK_STATE, PlaybackStateCompat.STATE_PAUSED)
-        broadcastIntent.putExtra(PlayerService.PARAM_POSITION, getCurrentPosition())
-        localBroadcast("onPlaybackState", broadcastIntent)
+        localBroadcastPlaybackState()
     }
 
     fun stopPlayer() {
@@ -289,14 +320,12 @@ class PlayerController(val context: Context, val TAG: String)
             position = getCurrentPosition()
             repository.update(this)
         }
+        cancelSeekRepeat()
+        cancelPendingSeek()
         player.playWhenReady = false
         player.stop(false)
         abandonAudioFocusRequest()
-
-        val broadcastIntent = Intent()
-        broadcastIntent.putExtra(PlayerService.PARAM_PLAYBACK_STATE, PlaybackStateCompat.STATE_STOPPED)
-        broadcastIntent.putExtra(PlayerService.PARAM_POSITION, getCurrentPosition())
-        localBroadcast("onPlaybackState", broadcastIntent)
+        localBroadcastPlaybackState(PlaybackStateCompat.STATE_STOPPED)
     }
 
     fun getCurrentPosition(): Long {
@@ -338,6 +367,35 @@ class PlayerController(val context: Context, val TAG: String)
     private fun calculateStartPosition(fileItem: FileItem): Long {
         val startPosition = if (fileItem.finished || nearBeginning(fileItem.position) || nearEnding(fileItem.position, fileItem.duration)) 0 else fileItem.position
         return startPosition
+    }
+
+    fun calculateSeekPosition(swipeDistance: Float, swipeVelocity: Float): Long {
+        Logger.enter(TAG, "calculateSeekPosition() swipeDistance = $swipeDistance, swipeVelocity = $swipeVelocity")
+        val fileItem = currentFileItem
+        var position = fileItem.position
+        val duration = fileItem.duration
+        var direction = Math.signum(swipeDistance)
+        val distance = Math.abs(swipeDistance)
+        // 5 seconds every 120 pixels
+        val secondsInPixels = 5.0f
+        var pixelsDistance = 120.0f / 2f
+        var velocityFactor = 1.0f
+        if (swipeVelocity > 2000.0f || swipeVelocity < -2000.0f) {
+            velocityFactor = swipeVelocity / 500.0f
+        }
+        else if (swipeVelocity > 500.0f || swipeVelocity < -500.0f) {
+            velocityFactor = swipeVelocity / 1000.0f
+        }
+        val seconds = secondsInPixels * (distance / pixelsDistance) * Math.abs(velocityFactor)
+        position += (direction * seconds * 1000f).toInt()
+        if (position >= duration) {
+            position = duration - NEAR_ENDING
+        }
+        if (position < 0) {
+            position = 0
+        }
+        Logger.exit(TAG, "calculateSeekPosition() position = $position")
+        return position
     }
 
     private fun requestAudioFocus(focusChangeListener: AudioManager.OnAudioFocusChangeListener, streamType: Int, audioFocusGain: Int): Int {
@@ -443,9 +501,9 @@ class PlayerController(val context: Context, val TAG: String)
     private inner class PlayerEventListener: Player.DefaultEventListener() {
         override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
             super.onPlayerStateChanged(playWhenReady, playbackState)
-//            when (playbackState) {
-//                Player.STATE_ENDED -> stopPlayer()
-//            }
+            when (playbackState) {
+                Player.STATE_READY -> schedulePendingSeek()
+            }
         }
 
         override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters?) {
@@ -479,6 +537,8 @@ class PlayerController(val context: Context, val TAG: String)
 
     private inner class PlayerVideoListener: VideoListener {
         override fun onVideoSizeChanged(width: Int, height: Int, unappliedRotationDegrees: Int, pixelWidthHeightRatio: Float) {
+            videoWidth = width
+            videoHeight = height
         }
 
         override fun onRenderedFirstFrame() {
@@ -490,5 +550,16 @@ class PlayerController(val context: Context, val TAG: String)
         broadcastIntent.putExtra(PlayerService.PARAM_CALLBACK, callbackName)
         val broadcasted = LocalBroadcastManager.getInstance(context).sendBroadcast(broadcastIntent)
         return broadcasted
+    }
+
+    private fun localBroadcastPlaybackState(playbackState: Int = PlaybackStateCompat.STATE_NONE): Boolean {
+        val broadcastIntent = Intent()
+        val state = when (playbackState){
+            PlaybackStateCompat.STATE_NONE -> if (isPlaying()) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+            else -> playbackState
+        }
+        broadcastIntent.putExtra(PlayerService.PARAM_PLAYBACK_STATE, state)
+        broadcastIntent.putExtra(PlayerService.PARAM_POSITION, getCurrentPosition())
+        return localBroadcast("onPlaybackState", broadcastIntent)
     }
 }

@@ -20,8 +20,6 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
     val playerProgressBarMax = MutableLiveData<Int>().apply { value = 0}
     val playerInfoBar = MutableLiveData<String>()
     val playerInfoClock = MutableLiveData<String>()
-    var videoWidth = 0
-    var videoHeight = 0
 
     fun switchFolder(direction: Int) {
         repository.getAllFolderItems().value?.let { folderItems ->
@@ -156,7 +154,6 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
         fileItem?.let {
             setPlayerInfoFile(it.name)
         }
-        setVideoSize(0, 0)
     }
 
     fun getCurrentFileItem(): FileItem {
@@ -186,10 +183,5 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
 
     fun setPlayerInfoClock(info: String) {
         playerInfoClock.value = info
-    }
-
-    fun setVideoSize(width: Int, height: Int) {
-        videoWidth = width
-        videoHeight = height
     }
 }

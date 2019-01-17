@@ -3,11 +3,14 @@ package com.prettygoodcomputing.a4
 import android.Manifest
 import android.app.Activity
 import android.arch.lifecycle.Observer
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothHeadset
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.databinding.DataBindingUtil
+import android.media.AudioManager
 import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
@@ -16,6 +19,7 @@ import android.provider.Settings
 import android.support.design.widget.Snackbar
 import android.support.design.widget.NavigationView
 import android.support.v4.content.LocalBroadcastManager
+import android.support.v4.view.GestureDetectorCompat
 import android.support.v4.view.GravityCompat
 import android.support.v7.app.ActionBarDrawerToggle
 import android.support.v7.app.AppCompatActivity
@@ -23,12 +27,7 @@ import android.support.v7.view.ActionMode
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.PopupMenu
 import android.util.DisplayMetrics
-import android.view.GestureDetector
-import android.view.Menu
-import android.view.MenuItem
-import android.view.MotionEvent
-import android.view.View
-import android.view.ViewConfiguration
+import android.view.*
 import android.widget.SeekBar
 import android.widget.Toast
 import com.crashlytics.android.Crashlytics
@@ -66,6 +65,9 @@ class MainActivity : AppCompatActivity(),
     private val UPDATE_PROGRESS_INTERVAL = 1000L
     private val UPDATE_CLOCK_INTERVAL = 60000L
 
+    private val BRIGHTNESS_MORNING = 255
+    private val BRIGHTNESS_EVENING = 30
+
     private val binding by lazy { DataBindingUtil.setContentView<ActivityMainBinding>(this, R.layout.activity_main) }
     private val viewModel by lazy { MainViewModel(application) }
     private val repository by lazy { viewModel.repository }
@@ -85,8 +87,6 @@ class MainActivity : AppCompatActivity(),
     private var message = ""
 
     private val playerController by lazy { PlayerController(context, "MA.PlayerController") }
-    private val playerEventListener = PlayerEventListener()
-    private val playerVideoListener = PlayerVideoListener()
     private val playerSeekBarChangeListener = PlayerSeekBarChangeListener()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -119,6 +119,7 @@ class MainActivity : AppCompatActivity(),
     private fun setUpDataBinding() {
         setSupportActionBar(binding.toolbar)
         binding.setLifecycleOwner(this)
+        binding.activity = this
         binding.viewModel = viewModel
         binding.repository = repository
     }
@@ -143,7 +144,7 @@ class MainActivity : AppCompatActivity(),
         }
 
         // setup a gesture detector for the recycler view to allow swipe left / right to switch folder
-        val recyclerViewGestureDetector = GestureDetector(context, recyclerViewGestureListener)
+        val recyclerViewGestureDetector = GestureDetectorCompat(context, recyclerViewGestureListener)
         binding.recyclerView.setOnTouchListener { _, event ->
             recyclerViewGestureDetector.onTouchEvent(event)
         }
@@ -235,6 +236,52 @@ class MainActivity : AppCompatActivity(),
     override fun onStop() {
         super.onStop()
         unregisterLocalBroadcastReceiver()
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        Logger.enter(TAG, "onKeyDown() keyCode = $keyCode")
+        var handled = false
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                Logger.v(TAG, "onKeyDown() KEYCODE_VOLUME_UP")
+                if (!playerController.isPlaying()) {
+                    resumePlayer()
+                    Logger.v(TAG, "onKeyDown() KEYCODE_VOLUME_UP resume playing")
+                }
+                else {
+                    getAudioManager().adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0)
+                    Logger.v(TAG, "onKeyDown() KEYCODE_VOLUME_UP raise volume")
+                }
+                showVolumeBar()
+                handled = true
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                if (getAudioManager().getStreamVolume(AudioManager.STREAM_MUSIC) == 0) {
+                    if (playerController.isPlaying()) {
+                        pausePlayer()
+                        Logger.v(TAG, "onKeyDown() KEYCODE_VOLUME_DOWN pause playing")
+                    }
+                    else {
+//                        cancelPushToBackground()
+                        if (isPlayerVisible()) {
+                            stopPlayer()
+                        }
+                        else {
+                            finish()
+                        }
+                        Logger.v(TAG, "onKeyDown() KEYCODE_VOLUME_DOWN finish")
+                    }
+                }
+                else {
+                    getAudioManager().adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0)
+                    Logger.v(TAG, "onKeyDown() KEYCODE_VOLUME_DOWN lower volume")
+                }
+                showVolumeBar()
+                handled = true
+            }
+        }
+        Logger.exit(TAG, "onKeyDown() keyCode = $keyCode, handled = $handled")
+        return handled
     }
 
     override fun onBackPressed() {
@@ -410,15 +457,34 @@ class MainActivity : AppCompatActivity(),
 
         binding.timelineBar.setOnSeekBarChangeListener(playerSeekBarChangeListener)
 
-        val middlePanelGestureDetector = GestureDetector(context, MiddlePanelGestureListener())
+        val topPanelGestureDetector = GestureDetector(context, TopPanelGestureListener())
+        binding.topPanel.setOnTouchListener { _, event ->
+            topPanelGestureDetector.onTouchEvent(event);
+            true
+        }
+
+        val middlePanelGestureDetector = GestureDetectorCompat(context, MiddlePanelGestureListener())
         binding.middlePanel.setOnTouchListener { _, event ->
             middlePanelGestureDetector.onTouchEvent(event)
+            true
         }
 
         // temporary action to stop player
         binding.brightnessButton.setOnClickListener {
             stopPlayer()
         }
+    }
+
+    private fun showVolumeBar() {
+        showVolumeBarStartTime = SystemClock.elapsedRealtime()
+        updateVolumeBar()
+        showControls()
+    }
+
+    private fun updateVolumeBar() {
+        binding.volumeBar.max = getAudioManager().getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        binding.volumeBar.progress = getAudioManager().getStreamVolume(AudioManager.STREAM_MUSIC)
+        binding.volumeBar.visibility = View.VISIBLE
     }
 
     private fun showMessage(info: String) {
@@ -535,7 +601,7 @@ class MainActivity : AppCompatActivity(),
         return binding.playerViewLayout.visibility == View.VISIBLE
     }
 
-    private fun seekForward() {
+    fun seekForward() {
         Logger.enter(TAG, "seekForward()")
         showControls()
         val shouldUpdateInfo = !playerController.isPlaying()
@@ -546,7 +612,7 @@ class MainActivity : AppCompatActivity(),
         Logger.exit(TAG, "seekForward()")
     }
 
-    private fun seekForwardRepeat(): Boolean {
+    fun seekForwardRepeat(): Boolean {
         showControls()
         val shouldUpdateInfo = !playerController.isPlaying()
         playerController.seekForwardRepeat()
@@ -556,7 +622,7 @@ class MainActivity : AppCompatActivity(),
         return true
     }
 
-    private fun seekBackward() {
+    fun seekBackward() {
         showControls()
         val shouldUpdateInfo = !playerController.isPlaying()
         playerController.seekBackward()
@@ -565,7 +631,7 @@ class MainActivity : AppCompatActivity(),
         }
     }
 
-    private fun seekBackwardRepeat(): Boolean {
+    fun seekBackwardRepeat(): Boolean {
         showControls()
         val shouldUpdateInfo = !playerController.isPlaying()
         playerController.seekBackwardRepeat()
@@ -574,6 +640,34 @@ class MainActivity : AppCompatActivity(),
         }
         return true
     }
+
+    fun turnUpBrightness() {
+        adjustBrightness(BRIGHTNESS_MORNING)
+    }
+
+    fun turnDownBrightness(): Boolean {
+        adjustBrightness(BRIGHTNESS_EVENING)
+        return true
+    }
+
+    private fun isBluetoothConnected(): Boolean {
+        val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+        return (bluetoothAdapter != null && bluetoothAdapter.isEnabled
+                && bluetoothAdapter.getProfileConnectionState(BluetoothHeadset.A2DP) == BluetoothHeadset.STATE_CONNECTED)
+    }
+
+    private fun adjustBrightness(brightness: Int) : Boolean {
+        Logger.enter(TAG, "adjustBrightness() brightness = $brightness")
+        val bluetoothConnected = isBluetoothConnected()
+//        if (TimeProfile.allowAdjustBrightness() && bluetoothConnected) {
+        if (bluetoothConnected) {
+            showControls()
+            App.setScreenBrightness(brightness)
+        }
+        Logger.exit(TAG, "adjustBrightness() brightness = $brightness")
+        return true
+    }
+
 
     private fun updateAllInfo() {
         updatePlayerInfo()
@@ -600,8 +694,8 @@ class MainActivity : AppCompatActivity(),
         if (!playerController.isPlaying()) {
             info += "Paused\n"
         }
-        if (viewModel.videoWidth > 0 && viewModel.videoHeight > 0) {
-            info += "${viewModel.videoWidth} x ${viewModel.videoHeight}"
+        if (playerController.videoWidth > 0 && playerController.videoHeight > 0) {
+            info += "${playerController.videoWidth} x ${playerController.videoHeight}"
         }
         viewModel.setPlayerInfoBar(info)
         handler.postDelayed(updateInfoAction, UPDATE_INFO_SHOW_TIME);
@@ -675,69 +769,68 @@ class MainActivity : AppCompatActivity(),
         localBroadcastReceiver = null
     }
 
-    private inner class PlayerEventListener: Player.DefaultEventListener() {
-        override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
-            super.onPlayerStateChanged(playWhenReady, playbackState)
-            updateProgress()
-//            when (playbackState) {
-//                Player.STATE_ENDED -> stopPlayer()
-//            }
-        }
-
-        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters?) {
-            super.onPlaybackParametersChanged(playbackParameters)
-        }
-
-        override fun onSeekProcessed() {
-            super.onSeekProcessed()
-            updateProgress()
-        }
-
-        override fun onTracksChanged(trackGroups: TrackGroupArray?, trackSelections: TrackSelectionArray?) {
-            super.onTracksChanged(trackGroups, trackSelections)
-            updateProgress()
-        }
-
-        override fun onPlayerError(error: ExoPlaybackException?) {
-            super.onPlayerError(error)
-        }
-
-        override fun onLoadingChanged(isLoading: Boolean) {
-            super.onLoadingChanged(isLoading)
-        }
-
-        override fun onPositionDiscontinuity(reason: Int) {
-            super.onPositionDiscontinuity(reason)
-            updateProgress()
-        }
-
-        override fun onTimelineChanged(timeline: Timeline?, manifest: Any?, reason: Int) {
-            super.onTimelineChanged(timeline, manifest, reason)
-            updateProgress()
-        }
-    }
-
-    private inner class PlayerVideoListener: VideoListener {
-        override fun onVideoSizeChanged(width: Int, height: Int, unappliedRotationDegrees: Int, pixelWidthHeightRatio: Float) {
-            viewModel.setVideoSize(width, height)
-            updatePlayerInfo()
-        }
-
-        override fun onRenderedFirstFrame() {
-        }
-    }
-
     private inner class PlayerSeekBarChangeListener: SeekBar.OnSeekBarChangeListener {
         override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
             if (fromUser) {
                 seekTo(progress * 1000L)
             }
         }
+        override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+        override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+    }
 
-        override fun onStartTrackingTouch(seekBar: SeekBar?) {
+    private fun convertDpToPixel(dp: Int): Int {
+        return dp * App.getContext().resources.getDisplayMetrics().densityDpi / DisplayMetrics.DENSITY_DEFAULT
+    }
+
+    private fun getAudioManager() = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+    private inner class TopPanelGestureListener: GestureDetector.SimpleOnGestureListener() {
+
+        private val TAG = "TopPanelGestureListener"
+
+        override fun onSingleTapConfirmed(e: MotionEvent?): Boolean {
+            Logger.enter(TAG, "onSingleTapConfirmed()")
+            if (playerController.isSeekRepeat()) {
+                showControls()
+                playerController.cancelSeekRepeat()
+            }
+            else {
+                toggleControls()
+            }
+            Logger.exit(TAG, "onSingleTapConfirmed()")
+            return super.onSingleTapConfirmed(e)
         }
 
-        override fun onStopTrackingTouch(seekBar: SeekBar?) {
+        override fun onLongPress(e: MotionEvent?) {
+            super.onLongPress(e)
+            Logger.enter(TAG, "onLongPress()")
+            showControls()
+            playerController.cancelSeekRepeat()
+            viewModel.deleteAllFinished()
+            playerController.interactive = true
+            Logger.exit(TAG, "onLongPress()")
+        }
+
+        override fun onFling(e1: MotionEvent, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+            Logger.enter(TAG, "onFling()")
+            showControls()
+            if (Math.abs(velocityX) > Math.abs(velocityY)) {
+                val swipeMinDistance = convertDpToPixel(SWIPE_MIN_DISTANCE_DP)
+                if (Math.abs(e1.x - e2.x) > swipeMinDistance && Math.abs(velocityX) > VOLUME_SWIPE_THRESHOLD_VELOCITY) {
+                    val direction = if (e1.x < e2.x) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER
+                    val volume = getAudioManager().getStreamVolume(AudioManager.STREAM_MUSIC)
+                    val count = if (volume == 0) 1 else (Math.abs(velocityX) / VOLUME_SWIPE_THRESHOLD_VELOCITY).toInt()
+                    Logger.v(TAG, "onFling() adjust volume, direction = $direction, count = $count")
+                    for (i in 1..count) {
+                        getAudioManager().adjustStreamVolume(AudioManager.STREAM_MUSIC, direction, 0)
+                        showVolumeBar()
+                    }
+                    playerController.interactive = true
+                }
+            }
+            Logger.exit(TAG, "onFling()")
+            return true
         }
     }
 
@@ -746,52 +839,45 @@ class MainActivity : AppCompatActivity(),
         private val TAG = "MiddlePanelGestureListener"
 
         override fun onSingleTapConfirmed(e: MotionEvent?): Boolean {
-            Logger.enter(TAG, "onSingleTapConfirmed()")
-//            if (mController.isSeekRepeat()) {
-//                showControls()
-//                mController.cancelSeekRepeat()
-//            }
-//            else {
-//                toggleControls()
-//            }
-            toggleControls()
-            togglePausePlayer()
-            Logger.exit(TAG, "onSingleTapConfirmed()")
+            if (playerController.isSeekRepeat()) {
+                showControls()
+                playerController.cancelSeekRepeat()
+            }
+            else {
+                toggleControls()
+            }
             return super.onSingleTapConfirmed(e)
         }
 
         override fun onDoubleTap(e: MotionEvent?): Boolean {
-//            Logger.enter(TAG, "onDoubleTap()")
             togglePausePlayer()
-//            Logger.exit(TAG, "onDoubleTap()")
+            updatePlayerInfo()
             return super.onDoubleTap(e)
         }
 
         override fun onLongPress(e: MotionEvent?) {
             super.onLongPress(e)
-            Logger.enter(TAG, "onLongPress()")
-            togglePausePlayer()
-//            stopPlayer()
+            stopPlayer()
 //            cancelPushToBackground()
             Logger.exit(TAG, "onLongPress()")
         }
 
-        private fun convertDpToPixel(dp: Int): Int {
-            return dp * App.getContext().resources.getDisplayMetrics().densityDpi / DisplayMetrics.DENSITY_DEFAULT
-        }
-
         override fun onFling(e1: MotionEvent, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
-            Logger.enter(TAG, "onFling()")
             val swipeMinDistance = convertDpToPixel(SWIPE_MIN_DISTANCE_DP)
             val swipeThresholdVelocity = convertDpToPixel(SWIPE_THRESHOLD_VELOCITY_DP)
             val playNextDistance = convertDpToPixel(SWIPE_PLAY_NEXT_DISTANCE)
             showControls()
             if (Math.abs(velocityX) > Math.abs(velocityY)) {
                 if (Math.abs(e1.x - e2.x) > swipeMinDistance && Math.abs(velocityX) > swipeThresholdVelocity) {
-                    if (e1.x < e2.x) {
-                        // swipe right
-                    } else {
-                        // swipe left
+                    // swipe left / right
+                    if (e1.x < e2.x && playerController.nearEnding()) {
+                        // near the ending, swipe right will play next
+                        playerController.playNext()
+                    }
+                    else {
+                        val position = playerController.calculateSeekPosition(e2.x - e1.x, velocityX)
+                        playerController.cancelPendingSeek()
+                        playerController.seekTo(position)
                     }
                 }
             }
@@ -804,11 +890,11 @@ class MainActivity : AppCompatActivity(),
                         }
                         if (e1.y > e2.y) {
                             // swipe left / right then up
-//                            mController.playPrevious()
+                            playerController.playPrevious()
                         }
                         else {
                             // swipe left / right then down
-//                            mController.playNext()
+                            playerController.playNext()
                         }
                     }
                     else {
@@ -827,66 +913,6 @@ class MainActivity : AppCompatActivity(),
                     }
                 }
             }
-
-/*
-            val swipeMinDistance = mController.convertDpToPixel(SWIPE_MIN_DISTANCE_DP)
-            val swipeThresholdVelocity = mController.convertDpToPixel(SWIPE_THRESHOLD_VELOCITY_DP)
-            val playNextDistance = mController.convertDpToPixel(SWIPE_PLAY_NEXT_DISTANCE)
-            val diffY = e1.y - e2.y
-            val fileItem = DataStore.getFileItem(getUrl())
-            Logger.v(TAG, "onFling() fileItem.duration = ${fileItem.duration}, swipeMinDistance = $swipeMinDistance, diffY = $diffY, velocityX = $velocityX, velocityY = $velocityY")
-            showControls()
-            if (fileItem.duration > 0) {
-                mController.interactive = true
-                if (Math.abs(velocityX) > Math.abs(velocityY)) {
-                    if (Math.abs(e1.x - e2.x) > swipeMinDistance && Math.abs(velocityX) > swipeThresholdVelocity) {
-                        Logger.v(TAG, "onFling() swipe left / right")
-                        if (e1.x < e2.x && mController.nearEnding(fileItem.position, fileItem.duration)) {
-                            // near the ending, swipe right will play next
-                            mController.playNext()
-                        }
-                        else {
-                            val position = mController.calculateSeekPosition(e2.x - e1.x, velocityX)
-                            mController.cancelPendingSeek()
-                            mController.seekTo(position)
-                        }
-                    }
-                }
-                else {
-                    if (Math.abs(e1.y - e2.y) > playNextDistance && Math.abs(velocityY) > swipeThresholdVelocity) {
-                        Logger.v(TAG, "onFling() swipe up / down")
-                        if (Math.abs(e1.x - e2.x) > playNextDistance) {
-                            if (e1.x > e2.x) {
-                                // swipe left then up / down, will mark the file as finished
-                                fileItem.finished = true
-                            }
-                            if (e1.y > e2.y) {
-                                // swipe left / right then up
-                                mController.playPrevious()
-                            }
-                            else {
-                                // swipe left / right then down
-                                mController.playNext()
-                            }
-                        }
-                        else {
-                            if (e1.y < e2.y) {
-                                // on swipe down, close the app
-                                stopPlayer()
-                                cancelPushToBackground()
-                                finish(true)
-                            }
-                            else {
-                                // on swipe up, push to background close the app
-                                allowPushToBackground()
-                                finish(true)
-                            }
-                        }
-                    }
-                }
-            }
-*/
-            Logger.exit(TAG, "onFling()")
             return true
         }
     }

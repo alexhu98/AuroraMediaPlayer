@@ -2,6 +2,7 @@
 <layout>
     <data>
         <import type="com.prettygoodcomputing.a4.Formatter" />
+        <variable name="activity" type="com.prettygoodcomputing.a4.MainActivity" />
         <variable name="viewModel" type="com.prettygoodcomputing.a4.MainViewModel" />
         <variable name="repository" type="com.prettygoodcomputing.a4.AppRepository" />
     </data>
@@ -160,6 +161,8 @@
                     android:layout_width="@dimen/seek_button_width"
                     android:layout_height="0dp"
                     android:longClickable="true"
+                    android:onClick="@{ () -> activity.seekForward() }"
+                    android:onLongClick="@{ () -> activity.seekForwardRepeat() }"
                     android:background="@android:color/transparent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintBottom_toTopOf="@+id/guideline"
@@ -174,6 +177,8 @@
                     android:layout_height="0dp"
                     android:longClickable="true"
                     android:background="@android:color/transparent"
+                    android:onClick="@{ () -> activity.seekBackward() }"
+                    android:onLongClick="@{ () -> activity.seekBackwardRepeat() }"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintBottom_toTopOf="@+id/brightness_button"
                     app:layout_constraintTop_toTopOf="@+id/guideline"
@@ -184,7 +189,10 @@
                     android:id="@+id/brightness_button"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:longClickable="true"
                     android:background="@android:color/transparent"
+                    android:onClick="@{ () -> activity.turnUpBrightness() }"
+                    android:onLongClick="@{ () -> activity.turnDownBrightness() }"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:srcCompat="@drawable/transparent"
@@ -196,6 +204,8 @@
                     android:layout_height="0dp"
                     android:longClickable="true"
                     android:background="@android:color/transparent"
+                    android:onClick="@{ () -> activity.seekForward() }"
+                    android:onLongClick="@{ () -> activity.seekForwardRepeat() }"
                     app:layout_constraintBottom_toTopOf="@+id/guideline"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
@@ -207,6 +217,8 @@
                     android:layout_height="0dp"
                     android:longClickable="true"
                     android:background="@android:color/transparent"
+                    android:onClick="@{ () -> activity.seekBackward() }"
+                    android:onLongClick="@{ () -> activity.seekBackwardRepeat() }"
                     app:layout_constraintBottom_toTopOf="@+id/option_button"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="@+id/guideline"
