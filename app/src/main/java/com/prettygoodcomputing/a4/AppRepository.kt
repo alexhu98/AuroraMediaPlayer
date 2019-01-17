@@ -163,10 +163,10 @@ class AppRepository(val application: Application) {
         return currentFileItems
     }
 
-//    @Synchronized
-//    fun update(fileItem: FileItem) {
-//        update(listOf(fileItem))
-//    }
+    @Synchronized
+    fun update(fileItem: FileItem) {
+        update(listOf(fileItem))
+    }
 
     @Synchronized
     fun update(fileItems: List<FileItem>) {

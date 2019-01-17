@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.databinding.DataBindingUtil
-import android.net.Uri
 import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
@@ -34,13 +33,8 @@ import android.widget.SeekBar
 import android.widget.Toast
 import com.crashlytics.android.Crashlytics
 import com.google.android.exoplayer2.*
-import com.google.android.exoplayer2.source.ConcatenatingMediaSource
-import com.google.android.exoplayer2.source.ExtractorMediaSource
 import com.google.android.exoplayer2.source.TrackGroupArray
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray
-import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
-import com.google.android.exoplayer2.util.Util
 import com.google.android.exoplayer2.video.VideoListener
 import com.prettygoodcomputing.a4.databinding.ActivityMainBinding
 import kotlinx.android.synthetic.main.activity_main.*
@@ -50,10 +44,8 @@ import java.util.Date
 
 class MainActivity : AppCompatActivity(),
     NavigationView.OnNavigationItemSelectedListener,
-    ActionMode.Callback,
-    SeekBar.OnSeekBarChangeListener {
+    ActionMode.Callback {
 
-    private val APPLICATION_NAME = "A4"
     private val TAG = "MainActivity"
 
     private val REQUEST_NAVIGATE_FOLDERS = 100
@@ -67,8 +59,6 @@ class MainActivity : AppCompatActivity(),
     private val UPDATE_CONTROLS_SHOW_TIME = 30000L
     private val VOLUME_BAR_SHOW_TIME = 5000L
     private val VOLUME_SWIPE_THRESHOLD_VELOCITY = 500
-    private val PROGRESS_NEAR_BEGINNING = 60 * 1000
-    private val PROGRESS_NEAR_ENDING = 2 * 60 * 1000
 
     private val UPDATE_PROGRESS_INTERVAL = 1000L
     private val UPDATE_CLOCK_INTERVAL = 60000L
@@ -91,10 +81,11 @@ class MainActivity : AppCompatActivity(),
     private val updateClockAction = Runnable { updateClock() }
     private var message = ""
 
-    private lateinit var player: SimpleExoPlayer
-    private var playerCreated = false
+    private val playerController by lazy { PlayerController(context, "MA.PlayerController") }
+    private val player by lazy { playerController.getPlayer() }
     private val playerEventListener = PlayerEventListener()
     private val playerVideoListener = PlayerVideoListener()
+    private val playerSeekBarChangeListener = PlayerSeekBarChangeListener()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,14 +102,16 @@ class MainActivity : AppCompatActivity(),
 
     override fun onDestroy() {
         super.onDestroy()
-        releasePlayer()
+        handler.removeCallbacks(updateClockAction);
+        handler.removeCallbacks(updateProgressAction);
+        playerController.release()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            App.enterImmersiveMode(window)
-        }
+//        if (hasFocus) {
+//            App.enterImmersiveMode(window)
+//        }
     }
 
     private fun setUpDataBinding() {
@@ -129,7 +122,6 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun setUpRecyclerView() {
-
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.setHasFixedSize(true)
 
@@ -241,7 +233,6 @@ class MainActivity : AppCompatActivity(),
     override fun onStop() {
         super.onStop()
         unregisterLocalBroadcastReceiver()
-        releasePlayer()
     }
 
     override fun onBackPressed() {
@@ -405,9 +396,13 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun setUpPlayerView() {
-        createPlayer()
+        player.addListener(playerEventListener)
+        player.addVideoListener(playerVideoListener)
+
         binding.playerView.useController = false
         binding.playerView.player = player
+
+        binding.timelineBar.setOnSeekBarChangeListener(playerSeekBarChangeListener)
 
         val middlePanelGestureDetector = GestureDetector(context, MiddlePanelGestureListener())
         binding.middlePanel.setOnTouchListener { _, event ->
@@ -448,29 +443,13 @@ class MainActivity : AppCompatActivity(),
         }
     }
 
-    private fun progressNearBeginning(): Boolean {
-        if (playerCreated) {
-            val position = player.currentPosition
-            return position < PROGRESS_NEAR_BEGINNING
-        }
-        return false
-    }
-
-    private fun progressNearEnding(): Boolean {
-        if (playerCreated) {
-            val position = player.currentPosition
-            val duration = player.duration
-            return position > 0 && duration > 0 && position + PROGRESS_NEAR_ENDING > duration
-        }
-        return false
-    }
-
     private fun updateControls() {
         val currentTime = SystemClock.elapsedRealtime()
         val visibility = when {
-//            mController.isSeekRepeat() -> View.VISIBLE
-            progressNearBeginning() || progressNearEnding() -> View.VISIBLE
-            playerCreated && !player.playWhenReady -> View.VISIBLE
+            playerController.isSeekRepeat() -> View.VISIBLE
+            playerController.nearBeginning() -> View.VISIBLE
+            playerController.nearEnding() -> View.VISIBLE
+            !playerController.isPlaying() -> View.VISIBLE
             currentTime - showControlStartTime > UPDATE_CONTROLS_SHOW_TIME -> View.INVISIBLE
             else -> View.VISIBLE
         }
@@ -480,99 +459,43 @@ class MainActivity : AppCompatActivity(),
         binding.timelineBar.thumb = resources.getDrawable(thumb, context.theme)
     }
 
-    private fun createPlayer() {
-        if (!playerCreated) {
-            playerCreated = true
-            player = ExoPlayerFactory.newSimpleInstance(context, DefaultTrackSelector())
-            player.addListener(playerEventListener)
-            player.addVideoListener(playerVideoListener)
-            player.repeatMode = Player.REPEAT_MODE_OFF
-            player.setSeekParameters(SeekParameters.NEXT_SYNC)
-/*
-            mediaSessionConnector = MediaSessionConnector(mediaSession)
-            mediaSessionConnector.setQueueNavigator(object: TimelineQueueNavigator(mediaSession) {
-
-                override fun getMediaDescription(player: Player?, windowIndex: Int): MediaDescriptionCompat {
-                    val title = when (windowIndex) {
-                        0, 2, 4, 6 -> "mpthreetest.mp3 " + windowIndex.toString()
-                        else -> "crowd-cheering.mp3 " + windowIndex.toString()
-                    }
-                    val mediaDescription = MediaDescriptionCompat.Builder()
-                        .setMediaId(title)
-                        .setTitle(title)
-                        .setDescription(title)
-                        .build()
-                    return mediaDescription
-
-                }
-            })
-            mediaSessionConnector.setPlayer(player, null)
-*/
-        }
-    }
-
-    private fun releasePlayer() {
-        if (playerCreated) {
-            handler.removeCallbacks(updateClockAction);
-            handler.removeCallbacks(updateProgressAction);
-            player.playWhenReady = false
-            player.removeListener(playerEventListener)
-            player.removeVideoListener(playerVideoListener)
-            player.release()
-            playerCreated = false
-//            mediaSessionConnector.setPlayer(null, null)
-//            mediaSession.isActive = false
-//            mediaSession.release()
-        }
-
-    }
     private fun startPlayer(fileItem: FileItem) {
-        binding.mainLayout.visibility = View.GONE
-        binding.playerViewLayout.visibility = View.VISIBLE
-        viewModel.setCurrentFileItem(fileItem)
+        if (playerController.startPlayer(fileItem)) {
+            binding.mainLayout.visibility = View.GONE
+            binding.playerViewLayout.visibility = View.VISIBLE
+            viewModel.setCurrentFileItem(fileItem)
+            showControls()
+            updateAllInfo()
+        }
+    }
 
-        val dataSourceFactory = DefaultDataSourceFactory(context, Util.getUserAgent(context, APPLICATION_NAME))
-        val concatenatingMediaSource = ConcatenatingMediaSource()
-
-        val mediaSource = ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(fileItem.url))
-        concatenatingMediaSource.addMediaSource(mediaSource)
-
-        player.prepare(concatenatingMediaSource)
-        player.playWhenReady = true
+    private fun seekTo(progress: Long) {
+        showControls()
+        playerController.seekTo(progress)
         updateAllInfo()
     }
 
     private fun togglePausePlayer() {
-        if (playerCreated) {
-            player.playWhenReady = !player.playWhenReady
-            if (!player.playWhenReady) {
-                showControls()
-            }
-            updateAllInfo()
+        if (!playerController.togglePausePlayer()) {
+            showControls()
         }
+        updateAllInfo()
     }
 
     private fun resumePlayer() {
-        if (playerCreated) {
-            player.playWhenReady = true
-            updateAllInfo()
-        }
+        playerController.resumePlayer()
+        updateAllInfo()
     }
 
     private fun pausePlayer() {
-        if (playerCreated) {
-            player.playWhenReady = false
-            updateAllInfo()
-        }
+        playerController.pausePlayer()
+        updateAllInfo()
     }
 
     private fun stopPlayer() {
         handler.removeCallbacks(updateClockAction);
         handler.removeCallbacks(updateProgressAction);
-        if (playerCreated) {
-            player.playWhenReady = false
-            player.stop()
-        }
+        playerController.stopPlayer()
         binding.mainLayout.visibility = View.VISIBLE
         binding.playerViewLayout.visibility = View.GONE
     }
@@ -599,7 +522,7 @@ class MainActivity : AppCompatActivity(),
 //            }
 //        }
 //
-        if (playerCreated && !player.playWhenReady) {
+        if (!playerController.isPlaying()) {
             info += "Paused\n"
         }
         if (viewModel.videoWidth > 0 && viewModel.videoHeight > 0) {
@@ -628,7 +551,7 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun getBatteryLevel():Int {
-        val batteryIntent = context?.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         return if (batteryIntent == null) 0 else {
             val level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0);
             val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, 0);
@@ -648,15 +571,15 @@ class MainActivity : AppCompatActivity(),
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent != null) {
                     when (intent.action) {
-                        PlayerService.ACTION_MEDIA_SESSION_CALL_BACK -> {
-                            val callBack = intent.extras?.getString(PlayerService.PARAM_CALL_BACK) ?: ""
+                        PlayerService.ACTION_MEDIA_SESSION_CALLBACK -> {
+                            val callbackName = intent.extras?.getString(PlayerService.PARAM_CALLBACK) ?: ""
                             val mediaId = intent.extras?.getString(PlayerService.PARAM_MEDIA_ID) ?: ""
                             val query = intent.extras?.getString(PlayerService.PARAM_QUERY) ?: ""
                             val position = intent.extras?.getLong(PlayerService.PARAM_POSITION, 0L) ?: 0L
                             val queueId = intent.extras?.getLong(PlayerService.PARAM_QUEUE_ID, 0L) ?: 0L
 
-                            Toast.makeText(this@MainActivity, "MA: $callBack $mediaId", Toast.LENGTH_LONG).show()
-                            when (callBack) {
+                            Toast.makeText(this@MainActivity, "MA: $callbackName $mediaId", Toast.LENGTH_LONG).show()
+                            when (callbackName) {
                                 "onPlayFromMediaId" -> {} // mediaId
                                 "onPlayFromSearch" -> {} // query
                                 "onPlay" -> resumePlayer()
@@ -673,7 +596,7 @@ class MainActivity : AppCompatActivity(),
             }
         }
         localBroadcastReceiver?.let {
-            LocalBroadcastManager.getInstance(this).registerReceiver(it, IntentFilter(PlayerService.ACTION_MEDIA_SESSION_CALL_BACK))
+            LocalBroadcastManager.getInstance(this).registerReceiver(it, IntentFilter(PlayerService.ACTION_MEDIA_SESSION_CALLBACK))
         }
     }
 
@@ -688,9 +611,9 @@ class MainActivity : AppCompatActivity(),
         override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
             super.onPlayerStateChanged(playWhenReady, playbackState)
             updateProgress()
-            when (playbackState) {
-                Player.STATE_ENDED -> stopPlayer()
-            }
+//            when (playbackState) {
+//                Player.STATE_ENDED -> stopPlayer()
+//            }
         }
 
         override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters?) {
@@ -733,6 +656,20 @@ class MainActivity : AppCompatActivity(),
         }
 
         override fun onRenderedFirstFrame() {
+        }
+    }
+
+    private inner class PlayerSeekBarChangeListener: SeekBar.OnSeekBarChangeListener {
+        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+            if (fromUser) {
+                seekTo(progress * 1000L)
+            }
+        }
+
+        override fun onStartTrackingTouch(seekBar: SeekBar?) {
+        }
+
+        override fun onStopTrackingTouch(seekBar: SeekBar?) {
         }
     }
 
@@ -884,22 +821,5 @@ class MainActivity : AppCompatActivity(),
             Logger.exit(TAG, "onFling()")
             return true
         }
-    }
-
-    // SeekBar.OnSeekBarChangeListener
-    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-        if (fromUser) {
-            showControls()
-//            seekTo(progress * 1000L)
-            updateAllInfo()
-        }
-    }
-
-    // SeekBar.OnSeekBarChangeListener
-    override fun onStartTrackingTouch(seekBar: SeekBar?) {
-    }
-
-    // SeekBar.OnSeekBarChangeListener
-    override fun onStopTrackingTouch(seekBar: SeekBar?) {
     }
 }
