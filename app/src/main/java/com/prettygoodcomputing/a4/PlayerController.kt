@@ -44,6 +44,7 @@ class PlayerController(val context: Context, val TAG: String)
     private val playerVideoListener = PlayerVideoListener()
     private lateinit var player: SimpleExoPlayer
     private var playerCreated = false
+    private var playerActive = false
 
     private var handler = Handler()
     private var seekForwardCount = 0
@@ -98,6 +99,7 @@ class PlayerController(val context: Context, val TAG: String)
         createPlayer()
         val canStart = requestAudioFocusGranted()
         if (canStart) {
+            playerActive = true
             currentFileItem = fileItem
 
             val broadcastIntent = Intent()
@@ -158,51 +160,49 @@ class PlayerController(val context: Context, val TAG: String)
     }
 
     fun seekForward(offset: Int = SEEK_FORWARD_OFFSET) {
-        Logger.enter(TAG, "seekForward()")
-        resumePlayer()
-        if (!seekRepeating) {
-            interactive = true
-            cancelSeekRepeat()
-        }
-        seekBackwardCount = 0
-        if (!seekReady) {
-            seekForwardCount = Math.min(MAX_SEEK_FORWARD_COUNT, seekForwardCount + 1)
-            Logger.exit(TAG, "seekForward() seekForwardCount = $seekForwardCount")
-        }
-        else {
-            val duration = getDuration()
-            if (duration > 0) {
-                val currentPosition = getCurrentPosition()
-                var newPosition = currentPosition
-                if (nearEnding(newPosition, duration)) {
-                    // mark this file as finished
-//                    val fileItem = DataStore.getFileItem(mUrl)
-//                    fileItem.position = currentPosition
-//                    fileItem.finished = true
-
-                    // if already near the end, then skip to the next track
-//                    if (seekRepeat && TimeProfile.nightTimeInteractiveRequired() && !interactive) {
-//                        pause()
-//                        mPlayerControlListener?.onPlayerStopped()
-//                        Logger.v(TAG, "seekForward() finished because not interactive")
-//                    }
-//                    else {
-//                        playNext()
-//                        Logger.v(TAG, "seekForward() playNext")
-//                    }
-                    Logger.exit(TAG, "seekForward()")
-                }
-                else {
-                    newPosition += offset
+        if (playerActive) {
+            resumePlayer()
+            if (!seekRepeating) {
+                interactive = true
+                cancelSeekRepeat()
+            }
+            seekBackwardCount = 0
+            if (!seekReady) {
+                seekForwardCount = Math.min(MAX_SEEK_FORWARD_COUNT, seekForwardCount + 1)
+            }
+            else {
+                val duration = getDuration()
+                if (duration > 0) {
+                    val currentPosition = getCurrentPosition()
+                    var newPosition = currentPosition
                     if (nearEnding(newPosition, duration)) {
-                        newPosition = duration - NEAR_ENDING
-                        Logger.v(TAG, "seekForward() near end, back up a little")
+                        // mark this file as finished
+    //                    val fileItem = DataStore.getFileItem(mUrl)
+    //                    fileItem.position = currentPosition
+    //                    fileItem.finished = true
+
+                        // if already near the end, then skip to the next track
+    //                    if (seekRepeat && TimeProfile.nightTimeInteractiveRequired() && !interactive) {
+    //                        pause()
+    //                        mPlayerControlListener?.onPlayerStopped()
+    //                        Logger.v(TAG, "seekForward() finished because not interactive")
+    //                    }
+    //                    else {
+    //                        playNext()
+    //                        Logger.v(TAG, "seekForward() playNext")
+    //                    }
                     }
-                    if (newPosition < 0) {
-                        newPosition = 0
+                    else {
+                        newPosition += offset
+                        if (nearEnding(newPosition, duration)) {
+                            newPosition = duration - NEAR_ENDING
+                            Logger.v(TAG, "seekForward() near end, back up a little")
+                        }
+                        if (newPosition < 0) {
+                            newPosition = 0
+                        }
+                        seekTo(newPosition)
                     }
-                    seekTo(newPosition)
-                    Logger.exit(TAG, "seekForward() newPosition = $newPosition")
                 }
             }
         }
@@ -210,45 +210,48 @@ class PlayerController(val context: Context, val TAG: String)
 
     fun seekForwardRepeat() {
         Logger.enter(TAG, "seekForwardRepeat()")
-        cancelPendingSeek()
-        seekForwardCount = 1
-        seekRepeat = true
-        seekRepeating = true
-        seekForward()
-        seekRepeating = false
+        if (playerActive) {
+            cancelPendingSeek()
+            seekForwardCount = 1
+            seekRepeat = true
+            seekRepeating = true
+            seekForward()
+            seekRepeating = false
+        }
         Logger.exit(TAG, "seekForwardRepeat()")
     }
 
     fun seekBackward() {
-        Logger.enter(TAG, "seekBackward() seekReady = $seekReady, seekBackwardCount = $seekBackwardCount")
-        resumePlayer()
-        if (!seekRepeating) {
-            interactive = true
-            cancelSeekRepeat()
-        }
-        seekForwardCount = 0
-        if (!seekReady) {
-            seekBackwardCount = Math.min(MAX_SEEK_BACKWARD_COUNT, seekBackwardCount + 1)
-            Logger.exit(TAG, "seekBackward() seekBackwardCount = $seekBackwardCount")
-        }
-        else {
-            val currentPosition = getCurrentPosition()
-            var newPosition = currentPosition - SEEK_BACKWARD_OFFSET
-            if (newPosition < 0) {
-                newPosition = 0
+        if (playerActive) {
+            resumePlayer()
+            if (!seekRepeating) {
+                interactive = true
+                cancelSeekRepeat()
             }
-            seekTo(newPosition)
-            Logger.exit(TAG, "seekBackward() newPosition = $newPosition")
+            seekForwardCount = 0
+            if (!seekReady) {
+                seekBackwardCount = Math.min(MAX_SEEK_BACKWARD_COUNT, seekBackwardCount + 1)
+            }
+            else {
+                val currentPosition = getCurrentPosition()
+                var newPosition = currentPosition - SEEK_BACKWARD_OFFSET
+                if (newPosition < 0) {
+                    newPosition = 0
+                }
+                seekTo(newPosition)
+            }
         }
     }
 
     fun seekBackwardRepeat() {
         Logger.enter(TAG, "seekBackwardRepeat()")
-        seekBackwardCount = 1
-        seekRepeat = true
-        seekRepeating = true
-        seekBackward()
-        seekRepeating = false
+        if (playerActive) {
+            seekBackwardCount = 1
+            seekRepeat = true
+            seekRepeating = true
+            seekBackward()
+            seekRepeating = false
+        }
         Logger.exit(TAG, "seekBackwardRepeat()")
     }
 
@@ -305,27 +308,33 @@ class PlayerController(val context: Context, val TAG: String)
     }
 
     fun resumePlayer() {
-        player.playWhenReady = true
-        localBroadcastPlaybackState()
+        if (playerActive) {
+            player.playWhenReady = true
+            localBroadcastPlaybackState()
+        }
     }
 
     fun pausePlayer() {
-        player.playWhenReady = false
-        abandonAudioFocusRequest()
-        localBroadcastPlaybackState()
+        if (playerActive) {
+            player.playWhenReady = false
+            abandonAudioFocusRequest()
+            localBroadcastPlaybackState()
+        }
     }
 
     fun stopPlayer() {
-        currentFileItem.copy().apply {
-            position = getCurrentPosition()
-            repository.update(this)
+        if (playerActive) {
+            currentFileItem.copy().apply {
+                position = getCurrentPosition()
+                repository.update(this)
+            }
+            cancelSeekRepeat()
+            cancelPendingSeek()
+            player.playWhenReady = false
+            player.stop(false)
+            abandonAudioFocusRequest()
+            localBroadcastPlaybackState(PlaybackStateCompat.STATE_STOPPED)
         }
-        cancelSeekRepeat()
-        cancelPendingSeek()
-        player.playWhenReady = false
-        player.stop(false)
-        abandonAudioFocusRequest()
-        localBroadcastPlaybackState(PlaybackStateCompat.STATE_STOPPED)
     }
 
     fun getCurrentPosition(): Long {
@@ -561,5 +570,21 @@ class PlayerController(val context: Context, val TAG: String)
         broadcastIntent.putExtra(PlayerService.PARAM_PLAYBACK_STATE, state)
         broadcastIntent.putExtra(PlayerService.PARAM_POSITION, getCurrentPosition())
         return localBroadcast("onPlaybackState", broadcastIntent)
+    }
+
+    fun pushToBackground() {
+        val broadcastIntent = Intent()
+        broadcastIntent.putExtra(PlayerService.PARAM_MEDIA_ID, currentFileItem.url)
+        localBroadcast("onPushToBackground", broadcastIntent)
+    }
+
+    fun stopBackgroundPlayer() {
+        val broadcastIntent = Intent()
+        localBroadcast("onStopBackgroundPlayer", broadcastIntent)
+    }
+
+    fun stopBackgroundService() {
+        val broadcastIntent = Intent()
+        localBroadcast("onStopBackgroundService", broadcastIntent)
     }
 }

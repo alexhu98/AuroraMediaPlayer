@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity(),
     private var actionMode: ActionMode? = null
     private var actionModeMenu: Menu? = null
     private var localBroadcastReceiver: BroadcastReceiver? = null
+    private var activityViewUrl = ""
 
     private var updateInfoStartTime = 0L
     private var showVolumeBarStartTime = 0L
@@ -91,6 +92,12 @@ class MainActivity : AppCompatActivity(),
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (intent.action == Intent.ACTION_VIEW) {
+            intent.getStringExtra(PlayerService.PARAM_MEDIA_ID)?.let {
+                activityViewUrl = it
+            }
+        }
 
         setUpDataBinding()
         setUpRecyclerView()
@@ -177,6 +184,15 @@ class MainActivity : AppCompatActivity(),
 
         repository.getCurrentFileItems().observe(this, Observer<List<FileItem>> {
             fileItemAdapter.submitList(it)
+            if (activityViewUrl.isNotEmpty()) {
+                val fileItem = it?.find { it.url == activityViewUrl }
+                if (fileItem != null) {
+                    handler.post {
+                        startPlayer(fileItem)
+                    }
+                }
+                activityViewUrl = ""
+            }
         })
     }
 
@@ -221,6 +237,7 @@ class MainActivity : AppCompatActivity(),
 
     override fun onStart() {
         super.onStart()
+        playerController.stopBackgroundPlayer()
         registerLocalBroadcastReceiver()
     }
 
@@ -235,6 +252,7 @@ class MainActivity : AppCompatActivity(),
 
     override fun onStop() {
         super.onStop()
+        stopPlayer()
         unregisterLocalBroadcastReceiver()
     }
 
@@ -262,7 +280,6 @@ class MainActivity : AppCompatActivity(),
                         Logger.v(TAG, "onKeyDown() KEYCODE_VOLUME_DOWN pause playing")
                     }
                     else {
-//                        cancelPushToBackground()
                         if (isPlayerVisible()) {
                             stopPlayer()
                         }
@@ -318,7 +335,11 @@ class MainActivity : AppCompatActivity(),
         when (item.itemId) {
             R.id.nav_folders -> startActivityForResult(Intent(context, SelectedFoldersActivity::class.java), REQUEST_NAVIGATE_FOLDERS)
             R.id.nav_settings -> startActivityForResult(Intent(context, SettingsActivity::class.java), REQUEST_NAVIGATE_SETTINGS)
-            R.id.nav_exit -> finish()
+            R.id.nav_exit -> {
+                stopPlayer()
+                playerController.stopBackgroundService()
+                finish()
+            }
         }
         return true
     }
@@ -449,9 +470,6 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun setUpPlayerView() {
-//        getPlayer().addListener(playerEventListener)
-//        getPlayer().addVideoListener(playerVideoListener)
-
         binding.playerView.useController = false
         binding.playerView.player = getPlayer()
 
@@ -559,9 +577,7 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun playFromMediaId(mediaId: String) {
-        if (isPlayerVisible()) {
-            stopPlayer()
-        }
+        stopPlayer()
         startPlayer(repository.getFileItem(mediaId))
     }
 
@@ -589,12 +605,14 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun stopPlayer() {
-        handler.removeCallbacks(updateClockAction);
-        handler.removeCallbacks(updateProgressAction);
-        playerController.stopPlayer()
-        playerController.release()
-        binding.mainLayout.visibility = View.VISIBLE
-        binding.playerViewLayout.visibility = View.GONE
+        if (isPlayerVisible()) {
+            handler.removeCallbacks(updateClockAction);
+            handler.removeCallbacks(updateProgressAction);
+            playerController.stopPlayer()
+            playerController.release()
+            binding.mainLayout.visibility = View.VISIBLE
+            binding.playerViewLayout.visibility = View.GONE
+        }
     }
 
     private fun isPlayerVisible(): Boolean {
@@ -858,7 +876,6 @@ class MainActivity : AppCompatActivity(),
         override fun onLongPress(e: MotionEvent?) {
             super.onLongPress(e)
             stopPlayer()
-//            cancelPushToBackground()
             Logger.exit(TAG, "onLongPress()")
         }
 
@@ -901,13 +918,13 @@ class MainActivity : AppCompatActivity(),
                         if (e1.y < e2.y) {
                             // swipe down, close the app
                             stopPlayer()
-//                            cancelPushToBackground()
+                            playerController.stopBackgroundService()
                             finish()
                         }
                         else {
                             // on swipe up, push to background close the app
                             stopPlayer()
-//                            allowPushToBackground()
+                            playerController.pushToBackground()
                             finish()
                         }
                     }

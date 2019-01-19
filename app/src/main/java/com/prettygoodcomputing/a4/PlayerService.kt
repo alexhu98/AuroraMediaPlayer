@@ -8,7 +8,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import android.support.v4.app.NotificationCompat
@@ -17,24 +16,16 @@ import android.support.v4.media.app.NotificationCompat.MediaStyle
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaBrowserCompat.MediaItem
 import android.support.v4.media.MediaBrowserServiceCompat
-import android.support.v4.media.MediaDescriptionCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaButtonReceiver
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.text.TextUtils
-import android.widget.Toast
-import com.google.android.exoplayer2.source.ConcatenatingMediaSource
-import com.google.android.exoplayer2.source.ExtractorMediaSource
-import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
-import com.google.android.exoplayer2.util.Util
 import java.net.URLDecoder
 
 class PlayerService : MediaBrowserServiceCompat() {
 
-    private lateinit var mediaSession: MediaSessionCompat
-    private val context by lazy { this }
-    private val repository by lazy { App.getAppRepository() }
+    private val TAG = "PlayerService"
 
     private val PLAYER_SERVICE_NOTIFICATION_ID = 101
     private val REQUEST_LAUNCH_APP = 201
@@ -43,10 +34,14 @@ class PlayerService : MediaBrowserServiceCompat() {
     private val MEDIA_ID_ROOT = "com.prettygoodcomputing.a4.PlayerService.Root"
     private val MEDIA_ID_EMPTY_ROOT = "com.prettygoodcomputing.a4.PlayerService.EmptyRoot"
 
+    private val context by lazy { this }
+    private val repository by lazy { App.getAppRepository() }
+    private lateinit var mediaSession: MediaSessionCompat
+    private val notificationManager by lazy { getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager }
     private val playerController by lazy { PlayerController(context, "PS.PlayerController") }
-    private val player by lazy { playerController.getPlayer() }
     private var localBroadcastReceiver: BroadcastReceiver? = null
     private var mediaPlaybackState = PlaybackStateCompat.STATE_NONE
+    private var foregroundServiceStarted = false
     private var currentContentUrl = ""
     private var currentContentTitle = ""
 
@@ -119,8 +114,7 @@ class PlayerService : MediaBrowserServiceCompat() {
     private fun localBroadcast(callbackName: String, broadcastIntent: Intent): Boolean {
         broadcastIntent.action = PlayerService.ACTION_MEDIA_SESSION_CALLBACK
         broadcastIntent.putExtra(PlayerService.PARAM_CALLBACK, callbackName)
-        val broadcasted = LocalBroadcastManager.getInstance(context).sendBroadcast(broadcastIntent)
-        return broadcasted
+        return LocalBroadcastManager.getInstance(context).sendBroadcast(broadcastIntent)
     }
 
     private inner class MediaSessionCallback : MediaSessionCompat.Callback() {
@@ -128,27 +122,44 @@ class PlayerService : MediaBrowserServiceCompat() {
         override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) {
             val broadcastIntent = Intent()
             broadcastIntent.putExtra(PlayerService.PARAM_MEDIA_ID, mediaId)
-            localBroadcast("onPlayFromMediaId", broadcastIntent)
+            if (!localBroadcast("onPlayFromMediaId", broadcastIntent)) {
+                playerController.stopPlayer()
+                val intent = Intent(context, MainActivity::class.java)
+                intent.action = Intent.ACTION_VIEW
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                intent.putExtra(PARAM_MEDIA_ID, mediaId)
+                startActivity(intent);
+            }
         }
 
         override fun onPlay() {
-            localBroadcast("onPlay", Intent())
+            if (!localBroadcast("onPlay", Intent())) {
+                playerController.resumePlayer()
+            }
         }
 
         override fun onPause() {
-            localBroadcast("onPause", Intent())
+            if (!localBroadcast("onPause", Intent())) {
+                playerController.pausePlayer()
+            }
         }
 
         override fun onStop() {
-            localBroadcast("onStop", Intent())
+            if (!localBroadcast("onStop", Intent())) {
+                stopForegroundService()
+            }
         }
 
         override fun onSkipToNext() {
-            localBroadcast("onSkipToNext", Intent())
+            if (!localBroadcast("onSkipToNext", Intent())) {
+                playerController.seekForward()
+            }
         }
 
         override fun onSkipToPrevious() {
-            localBroadcast("onSkipToPrevious", Intent())
+            if (!localBroadcast("onSkipToPrevious", Intent())) {
+                playerController.seekBackward()
+            }
         }
 
         override fun onCustomAction(action: String?, extras: Bundle?) {}
@@ -169,6 +180,9 @@ class PlayerService : MediaBrowserServiceCompat() {
                             when (callbackName) {
                                 "onStartPlayer" -> setPlayerInfo(mediaId)
                                 "onPlaybackState" -> setMediaPlaybackState(playbackState, position)
+                                "onPushToBackground" -> pushToBackground(mediaId)
+                                "onStopBackgroundPlayer" -> playerController.stopPlayer()
+                                "onStopBackgroundService" -> stopForegroundService()
                             }
                         }
                     }
@@ -198,34 +212,37 @@ class PlayerService : MediaBrowserServiceCompat() {
     }
 
     private fun setMediaPlaybackState(state: Int, position: Long = 0) {
-        mediaPlaybackState = state
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val notification = buildNotification(mediaPlaybackState, CHANNEL_PLAYER_SERVICE)
-        notificationManager.notify(PLAYER_SERVICE_NOTIFICATION_ID, notification)
+        Logger.enter(TAG, "setMediaPlaybackState state = $state")
+        if (foregroundServiceStarted) {
+            mediaPlaybackState = state
+            val notification = buildNotification(mediaPlaybackState, CHANNEL_PLAYER_SERVICE, position)
+            notificationManager.notify(PLAYER_SERVICE_NOTIFICATION_ID, notification)
 
-        val fileItem = repository.getFileItem(currentContentUrl)
-        val fileItems = repository.getCurrentFileItems().value ?: listOf()
-        val index = fileItems.indexOf(fileItem)
-        val trackNumber = if (index >= 0) index + 1 else 1
-        val numberOfTracks = if (index >= 0) fileItems.size else 1
-        val metadata = createMetadata(fileItem, trackNumber, numberOfTracks)
-        mediaSession.setMetadata(metadata)
+            val fileItem = repository.getFileItem(currentContentUrl)
+            val fileItems = repository.getCurrentFileItems().value ?: listOf()
+            val index = fileItems.indexOf(fileItem)
+            val trackNumber = if (index >= 0) index + 1 else 1
+            val numberOfTracks = if (index >= 0) fileItems.size else 1
+            val metadata = createMetadata(fileItem, trackNumber, numberOfTracks)
+            mediaSession.setMetadata(metadata)
 
-        val commonActions = PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or
-                PlaybackStateCompat.ACTION_PLAY_PAUSE or
-                PlaybackStateCompat.ACTION_STOP or
-                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
-                PlaybackStateCompat.ACTION_SKIP_TO_NEXT
+            val commonActions = PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or
+                    PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                    PlaybackStateCompat.ACTION_STOP or
+                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                    PlaybackStateCompat.ACTION_SKIP_TO_NEXT
 
-        val stateBuilder = PlaybackStateCompat.Builder()
-        when (mediaPlaybackState) {
-            PlaybackStateCompat.STATE_NONE, PlaybackStateCompat.STATE_STOPPED -> {}
-            PlaybackStateCompat.STATE_PLAYING -> stateBuilder.setActions(PlaybackStateCompat.ACTION_PAUSE or commonActions)
-            PlaybackStateCompat.STATE_PAUSED -> stateBuilder.setActions(PlaybackStateCompat.ACTION_PLAY or commonActions)
+            val stateBuilder = PlaybackStateCompat.Builder()
+            when (mediaPlaybackState) {
+                PlaybackStateCompat.STATE_NONE, PlaybackStateCompat.STATE_STOPPED -> {}
+                PlaybackStateCompat.STATE_PLAYING -> stateBuilder.setActions(PlaybackStateCompat.ACTION_PAUSE or commonActions)
+                PlaybackStateCompat.STATE_PAUSED -> stateBuilder.setActions(PlaybackStateCompat.ACTION_PLAY or commonActions)
+            }
+            val playbackSpeed = if (mediaPlaybackState == PlaybackStateCompat.STATE_PLAYING) 1.0f else 0f
+            stateBuilder.setState(mediaPlaybackState, position, playbackSpeed, SystemClock.elapsedRealtime())
+            mediaSession.setPlaybackState(stateBuilder.build())
         }
-        val playbackSpeed = if (mediaPlaybackState == PlaybackStateCompat.STATE_PLAYING) 1.0f else 0f
-        stateBuilder.setState(mediaPlaybackState, position, playbackSpeed, SystemClock.elapsedRealtime())
-        mediaSession.setPlaybackState(stateBuilder.build())
+        Logger.exit(TAG, "setMediaPlaybackState state = $state")
     }
 
     private fun urlDecodedName(url: String): String {
@@ -242,30 +259,24 @@ class PlayerService : MediaBrowserServiceCompat() {
         currentContentTitle = urlDecodedName(url)
     }
 
+    private fun pushToBackground(url: String) {
+        setPlayerInfo(url)
+        startPlayer(url)
+    }
+
     private fun createNotificationChannel() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         var channel = NotificationChannel(CHANNEL_PLAYER_SERVICE, CHANNEL_PLAYER_SERVICE_NAME, NotificationManager.IMPORTANCE_LOW)
         notificationManager.createNotificationChannel(channel);
     }
 
-    private fun buildNotification(state: Int, channelID: String): Notification {
-//        val builder = NotificationCompat.Builder(context, CHANNEL_PLAYER_SERVICE)
-//        builder.setContentTitle(context.resources.getString(R.string.app_name))
-//            .setSmallIcon(R.drawable.ic_launcher_foreground)
-//            .setColor(resources.getColor(R.color.colorPrimaryDark, theme))
-//            .setStyle(MediaStyle()
-//                .setMediaSession(mediaSession.sessionToken)
-//            )
-//        val notification = builder.build()
-
-
-//        val fileItem = DataStore.getFileItem(mUrl)
-//        val contentText = Formatter.formatTime(fileItem.position) + " " + Formatter.formatTime(fileItem.duration)
+    private fun buildNotification(state: Int, channelID: String, position: Long = 0L): Notification {
+        Logger.enter(TAG, "buildNotification state = $state")
         val builder = NotificationCompat.Builder(this, channelID)
-
         val intent = Intent(this, MainActivity::class.java)
         intent.action = Intent.ACTION_VIEW
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        intent.putExtra(PARAM_MEDIA_ID, currentContentUrl)
         val pendingIntent = PendingIntent.getActivity(this, REQUEST_LAUNCH_APP, intent, PendingIntent.FLAG_UPDATE_CURRENT)
 
         if (state == PlaybackStateCompat.STATE_NONE || state == PlaybackStateCompat.STATE_STOPPED) {
@@ -279,6 +290,8 @@ class PlayerService : MediaBrowserServiceCompat() {
                 .setColor(resources.getColor( R.color.color_primary_dark, theme))
                 // Add a exit button
                 .addAction(exitAction)
+                .setShowWhen(false)
+                .setUsesChronometer(false)
                 // Take advantage of MediaStyle features
                 .setStyle(MediaStyle()
                     .setMediaSession(mediaSession.sessionToken)
@@ -286,9 +299,6 @@ class PlayerService : MediaBrowserServiceCompat() {
                 )
         }
         else {
-            // Get the session's metadata
-//            val controller = mController.getMediaSession().controller
-//            val mediaDescription = controller.metadata?.description
             val playOrPauseAction = if (state == PlaybackStateCompat.STATE_PLAYING) {
                 NotificationCompat.Action(
                     R.drawable.ic_media_pause, getString(R.string.media_pause),
@@ -330,19 +340,19 @@ class PlayerService : MediaBrowserServiceCompat() {
                     .setMediaSession(mediaSession.sessionToken)
                     .setShowActionsInCompactView(0, 1)
                 )
+            if (state == PlaybackStateCompat.STATE_PLAYING) {
+                builder.setWhen(System.currentTimeMillis() - position)
+                    .setShowWhen(true)
+                    .setUsesChronometer(true)
+            }
         }
+        Logger.exit(TAG, "buildNotification state = $state")
         return builder.build()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-//        if (intent?.action != null) {
-//            when (intent.action) {
-//                "Hello" -> {}
-//                else -> {
-//                    MediaButtonReceiver.handleIntent(mediaSession, intent)
-//                }
-//            }
-//        }
+        foregroundServiceStarted = true
+        mediaPlaybackState = PlaybackStateCompat.STATE_NONE
         val notification = buildNotification(mediaPlaybackState, CHANNEL_PLAYER_SERVICE)
         startForeground(PLAYER_SERVICE_NOTIFICATION_ID, notification)
         return START_STICKY
@@ -413,34 +423,24 @@ class PlayerService : MediaBrowserServiceCompat() {
 //        }
     }
 
-    private fun startPlayer() {
-        val dataSourceFactory = DefaultDataSourceFactory(context, Util.getUserAgent(context, context.resources.getString(R.string.app_name)))
-        val concatenatingMediaSource = ConcatenatingMediaSource()
-        val SAMPLES = arrayOf(
-            "https://archive.org/download/testmp3testfile/mpthreetest.mp3",
-            "https://sample-videos.com/audio/mp3/crowd-cheering.mp3",
-            "https://archive.org/download/testmp3testfile/mpthreetest.mp3",
-            "https://sample-videos.com/audio/mp3/crowd-cheering.mp3",
-            "https://archive.org/download/testmp3testfile/mpthreetest.mp3",
-            "https://sample-videos.com/audio/mp3/crowd-cheering.mp3",
-            "https://archive.org/download/testmp3testfile/mpthreetest.mp3",
-            "https://sample-videos.com/audio/mp3/crowd-cheering.mp3"
-        )
-        SAMPLES.forEach { url ->
-            val mediaSource = ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(url))
-            concatenatingMediaSource.addMediaSource(mediaSource)
-        }
-        player.prepare(concatenatingMediaSource)
-//        player.playWhenReady = true
-        player.playWhenReady = false
+    private fun startPlayer(url: String) {
+        val fileItem = repository.getFileItem((url))
+        playerController.stopPlayer()
+        playerController.release()
+        playerController.startPlayer(fileItem)
     }
 
     private fun releasePlayer() {
         playerController.release()
-//            playerNotificationManager.setPlayer(null)
-//            mediaSessionConnector.setPlayer(null, null)
-//            mediaSession.isActive = false
-//            mediaSession.release()
+    }
+
+    private fun stopForegroundService() {
+        Logger.enter(TAG, "stopForegroundService")
+        foregroundServiceStarted = false
+        playerController.stopPlayer()
+        stopForeground(true)
+        stopSelf()
+        Logger.exit(TAG, "stopForegroundService")
     }
 
     companion object {
