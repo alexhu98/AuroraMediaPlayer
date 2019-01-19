@@ -12,7 +12,6 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
     val repository by lazy { App.getAppRepository() }
     var singleSelection = true
 
-    private lateinit var currentFileItem: FileItem
     val playerInfoVisibility = MutableLiveData<Int>().apply { value = View.VISIBLE }
     val playerInfoFile = MutableLiveData<String>()
     val playerInfoTime = MutableLiveData<String>()
@@ -147,17 +146,6 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
             repository.update(it)
             repository.queryFileItems(it.url, fieldName)
         }
-    }
-
-    fun setCurrentFileItem(fileItem: FileItem) {
-        currentFileItem = fileItem
-        fileItem?.let {
-            setPlayerInfoFile(it.name)
-        }
-    }
-
-    fun getCurrentFileItem(): FileItem {
-        return currentFileItem
     }
 
     fun setPlayerInfoVisibility(visibility: Int) {

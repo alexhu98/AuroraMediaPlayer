@@ -335,12 +335,15 @@ class PlayerService : MediaBrowserServiceCompat() {
                 // Add a stop button
                 .addAction(stopAction)
 
+                .setShowWhen(false)
+                .setUsesChronometer(false)
+
                 // Take advantage of MediaStyle features
                 .setStyle(MediaStyle()
                     .setMediaSession(mediaSession.sessionToken)
                     .setShowActionsInCompactView(0, 1)
                 )
-            if (state == PlaybackStateCompat.STATE_PLAYING) {
+            if (state == PlaybackStateCompat.STATE_PLAYING && position > 0) {
                 builder.setWhen(System.currentTimeMillis() - position)
                     .setShowWhen(true)
                     .setUsesChronometer(true)

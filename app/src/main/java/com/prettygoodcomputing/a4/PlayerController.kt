@@ -45,6 +45,7 @@ class PlayerController(val context: Context, val TAG: String)
     private lateinit var player: SimpleExoPlayer
     private var playerCreated = false
     private var playerActive = false
+    private val playlist = ConcatenatingMediaSource()
 
     private var handler = Handler()
     private var seekForwardCount = 0
@@ -133,9 +134,11 @@ class PlayerController(val context: Context, val TAG: String)
 
     private fun buildMediaSource(url: String): MediaSource {
         Logger.enter(TAG, "buildMediaSource() starting url = $url")
+        playlist.clear()
+
         val dataSourceFactory = DefaultDataSourceFactory(context, Util.getUserAgent(context, context.resources.getString(R.string.app_name)));
         val mediaFactory = ExtractorMediaSource.Factory(dataSourceFactory)
-        val playlist = ConcatenatingMediaSource()
+        mediaFactory.setTag(url)
         val mediaSource = mediaFactory.createMediaSource(Uri.parse(url))
         playlist.addMediaSource(mediaSource)
 

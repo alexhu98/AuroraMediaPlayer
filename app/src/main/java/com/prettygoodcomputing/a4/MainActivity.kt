@@ -204,9 +204,7 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun setUpNavigationDrawer() {
-        val toggle = ActionBarDrawerToggle(
-            this, binding.drawerLayout, binding.toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close
-        )
+        val toggle = ActionBarDrawerToggle(this, binding.drawerLayout, binding.toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close)
         binding.drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
 
@@ -570,7 +568,7 @@ class MainActivity : AppCompatActivity(),
             binding.playerView.player = getPlayer()
             binding.mainLayout.visibility = View.GONE
             binding.playerViewLayout.visibility = View.VISIBLE
-            viewModel.setCurrentFileItem(fileItem)
+            viewModel.setPlayerInfoFile(fileItem.name)
             showControls()
             updateAllInfo()
         }
