@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity(),
     private val SWIPE_MIN_DISTANCE_DP = 48
     private val SWIPE_THRESHOLD_VELOCITY_DP = 36
     private val SWIPE_PLAY_NEXT_DISTANCE = 64
-    private val RECYCLER_VIEW_SWIPE_VELOCITY = 4000
+    private val RECYCLER_VIEW_SWIPE_VELOCITY = 3000
     private val UPDATE_INFO_SHOW_TIME = 5000L
     private val UPDATE_CONTROLS_SHOW_TIME = 30000L
     private val VOLUME_BAR_SHOW_TIME = 5000L
@@ -999,7 +999,7 @@ class MainActivity : AppCompatActivity(),
                     }
                 }
             }
-            return true
+            return false
         }
     }
 }
