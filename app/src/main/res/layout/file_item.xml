@@ -1,56 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layout>
-    <data>
-        <import type="android.databinding.adapters.Converters"/>
-        <import type="com.prettygoodcomputing.a4.Formatter" />
-        <variable name="fileItem" type="com.prettygoodcomputing.a4.FileItem" />
-    </data>
+<android.support.constraint.ConstraintLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        tools:layout_editor_absoluteY="81dp"
+>
+    <TextView
+            android:id="@+id/name"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="4dp"
+            android:textSize="18sp"
+            app:layout_constraintEnd_toStartOf="@+id/info"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"/>
 
-    <android.support.constraint.ConstraintLayout
-            xmlns:android="http://schemas.android.com/apk/res/android"
-            xmlns:app="http://schemas.android.com/apk/res-auto"
-            xmlns:tools="http://schemas.android.com/tools"
-            android:layout_width="match_parent"
+    <TextView
+            android:id="@+id/info"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="6dp"
+            android:layout_marginStart="6dp"
+            android:layout_marginBottom="4dp"
+            android:textAlignment="gravity"
+            android:gravity="right"
+            android:textSize="14sp"
+            app:layout_constraintStart_toEndOf="@+id/name"
+            app:layout_constraintEnd_toStartOf="@+id/progress"
+            app:layout_constraintTop_toTopOf="parent"/>
+
+    <TextView
+            android:id="@+id/progress"
+            android:layout_width="10dp"
             android:layout_height="wrap_content"
-            android:background="@{fileItem.selected ? @color/selection_color : @color/app_background_color}"
-            tools:layout_editor_absoluteY="81dp"
-    >
-        <TextView
-                android:id="@+id/name"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_marginStart="4dp"
-                android:textSize="18sp"
-                android:text="@{Formatter.formatFileName(fileItem.name)}"
-                app:layout_constraintEnd_toStartOf="@+id/info"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"/>
+            android:layout_marginStart="4dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/info"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"/>
 
-        <TextView
-                android:id="@+id/info"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_marginEnd="6dp"
-                android:layout_marginStart="6dp"
-                android:layout_marginBottom="4dp"
-                android:textAlignment="gravity"
-                android:gravity="right"
-                android:textSize="14sp"
-                android:text="@{Formatter.formatFileInfo(fileItem)}"
-                app:layout_constraintStart_toEndOf="@+id/name"
-                app:layout_constraintEnd_toStartOf="@+id/progress"
-                app:layout_constraintTop_toTopOf="parent"/>
-
-        <TextView
-                android:id="@+id/progress"
-                android:layout_width="10dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:text="@{Formatter.formatProgress(fileItem)}"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toEndOf="@+id/info"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent"/>
-
-    </android.support.constraint.ConstraintLayout>
-</layout>
+</android.support.constraint.ConstraintLayout>

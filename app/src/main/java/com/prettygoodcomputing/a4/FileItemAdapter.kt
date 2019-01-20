@@ -8,7 +8,8 @@ import android.support.v7.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.prettygoodcomputing.a4.databinding.FileItemBinding
+import android.widget.TextView
+import kotlinx.android.synthetic.main.file_item.view.*
 
 class FileItemAdapter(val activity: AppCompatActivity, val viewModel: MainViewModel): ListAdapter<FileItem, FileItemAdapter.ViewHolder>(DIFF_CALLBACK) {
 
@@ -23,11 +24,19 @@ class FileItemAdapter(val activity: AppCompatActivity, val viewModel: MainViewMo
 
     override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
         val fileItem = getItem(position)
-        viewHolder.bindFileItem(fileItem)
+        Logger.v(TAG, "onBindViewHolder ${fileItem.name}")
+        viewHolder.nameView.text = fileItem.name
+        viewHolder.infoView.text = Formatter.formatFileInfo(fileItem)
+        viewHolder.progressView.text = Formatter.formatProgress(fileItem)
+
+        val id = if (fileItem.selected) R.color.selection_color else R.color.app_background_color
+        viewHolder.view.setBackgroundColor(activity.resources.getColor(id, activity.theme))
     }
 
     inner class ViewHolder(val view: View) : RecyclerView.ViewHolder(view) {
-        private val binding = FileItemBinding.bind(view)
+        val nameView: TextView = view.name
+        val infoView: TextView = view.info
+        val progressView: TextView = view.progress
 
         init {
             view.setOnClickListener{
@@ -43,11 +52,6 @@ class FileItemAdapter(val activity: AppCompatActivity, val viewModel: MainViewMo
                 }
                 true
             }
-        }
-
-        fun bindFileItem(fileItem: FileItem) {
-            Logger.v(TAG, "bindFileItem ${fileItem.name}")
-            binding.fileItem = fileItem
         }
     }
 
