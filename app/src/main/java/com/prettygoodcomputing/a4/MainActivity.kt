@@ -165,56 +165,11 @@ class MainActivity : AppCompatActivity(),
         })
 
         // swipe left or right on the item will switch folder
-        val touchHandler = ItemTouchHelper(SwipeHandler(fileItemAdapter, 0, (ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT)))
+        val touchHandler = ItemTouchHelper(RecyclerViewItemSwipeHandler(fileItemAdapter, 0, (ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT)))
         touchHandler.attachToRecyclerView(recycler_view)
 
         // swipe left or right on the blank area will also switch folder
-        binding.recyclerView.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    swipeDirection = 0
-                    // Reset the velocity tracker back to its initial state.
-                    velocityTracker?.clear()
-                    // If necessary retrieve a new VelocityTracker object to watch the
-                    // velocity of a motion.
-                    velocityTracker = velocityTracker ?: VelocityTracker.obtain()
-                    // Add a user's movement to the tracker.
-                    velocityTracker?.addMovement(event)
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (velocityTracker == null) {
-                        velocityTracker = VelocityTracker.obtain()
-                    }
-                    velocityTracker?.apply {
-                        val pointerId: Int = event.getPointerId(event.actionIndex)
-                        addMovement(event)
-                        // When you want to determine the velocity, call
-                        // computeCurrentVelocity(). Then call getXVelocity()
-                        // and getYVelocity() to retrieve the velocity for each pointer ID.
-                        computeCurrentVelocity(1000)
-                        // Log velocity of pixels per second
-                        // Best practice to use VelocityTrackerCompat where possible.
-                        val xVelocity = getXVelocity(pointerId)
-                        val yVelocity = getYVelocity(pointerId)
-                        swipeDirection = when (Math.abs(xVelocity) > RECYCLER_VIEW_SWIPE_VELOCITY && Math.abs(yVelocity) < RECYCLER_VIEW_SWIPE_VELOCITY / 2) {
-                            true -> -Math.signum(xVelocity).toInt()
-                            false -> 0
-                        }
-                        Logger.v(TAG, "ACTION_MOVE xVelocity = $xVelocity, yVelocity = $yVelocity, swipeDirection = $swipeDirection")
-                    }
-                }
-                MotionEvent.ACTION_UP -> {
-                    // Return a VelocityTracker object back to be re-used by others.
-                    velocityTracker?.recycle()
-                    velocityTracker = null
-                    if (swipeDirection != 0) {
-                        viewModel.switchFolder(swipeDirection)
-                    }
-                }
-            }
-            false
-        }
-
+        binding.recyclerView.setOnTouchListener(RecyclerViewSwipeHandler())
 
         repository.getCurrentFileItems().observe(this, Observer<List<FileItem>> {
             fileItemAdapter.submitList(it)
@@ -972,7 +927,7 @@ class MainActivity : AppCompatActivity(),
         }
     }
 
-    private inner class SwipeHandler(val adapter: FileItemAdapter, dragDirs : Int, swipeDirs : Int): ItemTouchHelper.SimpleCallback(dragDirs, swipeDirs) {
+    private inner class RecyclerViewItemSwipeHandler(val adapter: FileItemAdapter, dragDirs : Int, swipeDirs : Int): ItemTouchHelper.SimpleCallback(dragDirs, swipeDirs) {
 
         override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean {
             return false
@@ -985,31 +940,66 @@ class MainActivity : AppCompatActivity(),
             }
         }
 
-        override fun onChildDraw(
-            c: Canvas,
-            recyclerView: RecyclerView,
-            viewHolder: RecyclerView.ViewHolder,
-            dX: Float,
-            dY: Float,
-            actionState: Int,
-            isCurrentlyActive: Boolean
-        ) {
-//            super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
-            Logger.v(TAG, "onChildDraw $dX $dY $actionState $viewHolder")
+        // override to disable animation
+        override fun onChildDraw(c: Canvas, recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder,
+                                 dX: Float, dY: Float, actionState: Int, isCurrentlyActive: Boolean) {
+//            Logger.v(TAG, "onChildDraw $dX $dY $actionState $viewHolder")
             return
         }
 
-        override fun onChildDrawOver(
-            c: Canvas,
-            recyclerView: RecyclerView,
-            viewHolder: RecyclerView.ViewHolder?,
-            dX: Float,
-            dY: Float,
-            actionState: Int,
-            isCurrentlyActive: Boolean
-        ) {
-//            super.onChildDrawOver(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
-            Logger.v(TAG, "onChildDrawOver $dX $dY $actionState $viewHolder")
+        // override to disable animation
+        override fun onChildDrawOver(c: Canvas, recyclerView: RecyclerView,  viewHolder: RecyclerView.ViewHolder?,
+                                     dX: Float, dY: Float, actionState: Int, isCurrentlyActive: Boolean) {
+//            Logger.v(TAG, "onChildDrawOver $dX $dY $actionState $viewHolder")
+        }
+    }
+
+    private inner class RecyclerViewSwipeHandler: View.OnTouchListener {
+
+        override fun onTouch(v: View?, event: MotionEvent?): Boolean {
+            when (event?.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    swipeDirection = 0
+                    // Reset the velocity tracker back to its initial state.
+                    velocityTracker?.clear()
+                    // If necessary retrieve a new VelocityTracker object to watch the
+                    // velocity of a motion.
+                    velocityTracker = velocityTracker ?: VelocityTracker.obtain()
+                    // Add a user's movement to the tracker.
+                    velocityTracker?.addMovement(event)
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (velocityTracker == null) {
+                        velocityTracker = VelocityTracker.obtain()
+                    }
+                    velocityTracker?.apply {
+                        val pointerId: Int = event.getPointerId(event.actionIndex)
+                        addMovement(event)
+                        // When you want to determine the velocity, call
+                        // computeCurrentVelocity(). Then call getXVelocity()
+                        // and getYVelocity() to retrieve the velocity for each pointer ID.
+                        computeCurrentVelocity(1000)
+                        // Log velocity of pixels per second
+                        // Best practice to use VelocityTrackerCompat where possible.
+                        val xVelocity = getXVelocity(pointerId)
+                        val yVelocity = getYVelocity(pointerId)
+                        swipeDirection = when (Math.abs(xVelocity) > RECYCLER_VIEW_SWIPE_VELOCITY && Math.abs(yVelocity) < RECYCLER_VIEW_SWIPE_VELOCITY / 2) {
+                            true -> -Math.signum(xVelocity).toInt()
+                            false -> 0
+                        }
+                        Logger.v(TAG, "ACTION_MOVE xVelocity = $xVelocity, yVelocity = $yVelocity, swipeDirection = $swipeDirection")
+                    }
+                }
+                MotionEvent.ACTION_UP -> {
+                    // Return a VelocityTracker object back to be re-used by others.
+                    velocityTracker?.recycle()
+                    velocityTracker = null
+                    if (swipeDirection != 0) {
+                        viewModel.switchFolder(swipeDirection)
+                    }
+                }
+            }
+            return true
         }
     }
 }
