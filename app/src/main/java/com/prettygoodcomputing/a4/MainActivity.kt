@@ -77,7 +77,7 @@ class MainActivity : AppCompatActivity(),
     private var actionMode: ActionMode? = null
     private var actionModeMenu: Menu? = null
     private var localBroadcastReceiver: BroadcastReceiver? = null
-    private var activityViewUrl = ""
+    private var autoStartUrl = ""
 
     private var updateInfoStartTime = 0L
     private var showVolumeBarStartTime = 0L
@@ -98,8 +98,12 @@ class MainActivity : AppCompatActivity(),
 
         if (intent.action == Intent.ACTION_VIEW) {
             intent.getStringExtra(PlayerService.PARAM_MEDIA_ID)?.let {
-                activityViewUrl = it
+                autoStartUrl = it
+                Logger.v(TAG, "onCreate() Intent.ACTION_VIEW $autoStartUrl")
             }
+        }
+        else {
+            autoStartUrl = repository.getCurrentContentUrl()
         }
 
         setUpDataBinding()
@@ -173,16 +177,22 @@ class MainActivity : AppCompatActivity(),
 
         repository.getCurrentFileItems().observe(this, Observer<List<FileItem>> {
             fileItemAdapter.submitList(it)
-            if (activityViewUrl.isNotEmpty()) {
-                val fileItem = it?.find { it.url == activityViewUrl }
+            checkAutoStartUrl()
+        })
+    }
+
+    private fun checkAutoStartUrl() {
+        if (autoStartUrl.isNotEmpty()) {
+            repository.getCurrentFileItems().value?.let {
+                val fileItem = it?.find { it.url == autoStartUrl }
                 if (fileItem != null) {
                     handler.post {
                         startPlayer(fileItem)
                     }
                 }
-                activityViewUrl = ""
             }
-        })
+            autoStartUrl = ""
+        }
     }
 
     private fun setUpFloatingActionButton() {
@@ -236,6 +246,17 @@ class MainActivity : AppCompatActivity(),
     override fun onResume() {
         super.onResume()
         binding.toolbar.title = Formatter.formatFolderName(repository.getCurrentFolder())
+        if (!isPlayerVisible()) {
+            if (repository.getCurrentContentUrl().isNotEmpty()) {
+                autoStartUrl = repository.getCurrentContentUrl()
+                Logger.v(TAG, "onResume() getCurrentContentUrl() $autoStartUrl")
+                repository.getCurrentFileItems().value?.let {
+                    if (it.isNotEmpty()) {
+                        checkAutoStartUrl()
+                    }
+                }
+            }
+        }
     }
 
     override fun onPause() {
@@ -970,6 +991,7 @@ class MainActivity : AppCompatActivity(),
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (velocityTracker == null) {
+                        swipeDirection = 0
                         velocityTracker = VelocityTracker.obtain()
                     }
                     velocityTracker?.apply {

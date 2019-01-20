@@ -21,7 +21,7 @@
                 android:layout_height="match_parent"
                 android:layout_marginStart="4dp"
                 android:textSize="18sp"
-                android:text="@{Formatter.formatFileName(fileItem.name)}"
+                android:text="@{fileItem.name}"
                 app:layout_constraintEnd_toStartOf="@+id/info"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"/>
