@@ -24,6 +24,8 @@ class AppRepository(val application: Application) {
     private val ARG_STORAGE_VOLUME = "storage-volume"
     private val ARG_DATABASE_LAST_UPDATE_TIME = "database-last-update"
 
+    val currentFileName = MutableLiveData<String>().apply { value = "" }
+    val currentContentUrl = MutableLiveData<String>().apply { value = "" }
     val currentFolder = MutableLiveData<String>().apply { value = "" }
     val currentFolderInfo = MutableLiveData<String>().apply { value = "" }
     val currentSortBy = MutableLiveData<String>().apply { value = FileItem.FIELD_NAME }
@@ -47,6 +49,27 @@ class AppRepository(val application: Application) {
             }
         }
     }
+
+    @Synchronized
+    fun getCurrentFileName(): String {
+        return currentFileName.value ?: ""
+    }
+
+    @Synchronized
+    fun setCurrentFileName(name: String) {
+        currentFileName.value = name
+    }
+
+    @Synchronized
+    fun getCurrentContentUrl(): String {
+        return currentContentUrl.value ?: ""
+    }
+
+    @Synchronized
+    fun setCurrentContentUrl(url: String) {
+        currentContentUrl.value = url
+    }
+
 
     @Synchronized
     fun getCurrentFolder(): String {
@@ -100,10 +123,15 @@ class AppRepository(val application: Application) {
             ?: FileItem(0, url, urlDecodedName(url), urlDecodeFolder(url))
     }
 
+    @Synchronized
+    fun getCurrentFileItem(): FileItem {
+        return getFileItem(getCurrentContentUrl())
+    }
+
+
     private fun urlDecodedName(url: String): String {
-        var name: String = URLDecoder.decode(url, "UTF-8")
-        val tokens = name.split("/")
-        return tokens[tokens.size - 1]
+        val name: String = URLDecoder.decode(url, "UTF-8")
+        return name.substringAfterLast("/").substringBeforeLast(".")
     }
 
     private fun urlDecodeFolder(url: String): String {

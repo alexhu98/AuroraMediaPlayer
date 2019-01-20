@@ -37,17 +37,20 @@ class PlayerController(val context: Context, val TAG: String)
     private val IS_ENDING = 3 * 1000L
     private val MAX_SEEK_FORWARD_COUNT = 5
     private val MAX_SEEK_BACKWARD_COUNT = 2
+    private val PLAYER_ERROR_POSITION_ADJUSTMENT = 5 * 60 * 1000
+    private val UPDATE_POSITION_INTERVAL = 1000L
 
     private val repository by lazy { App.getAppRepository() }
-    private lateinit var currentFileItem: FileItem
     private val playerEventListener = PlayerEventListener()
     private val playerVideoListener = PlayerVideoListener()
     private lateinit var player: SimpleExoPlayer
     private var playerCreated = false
     private var playerActive = false
     private val playlist = ConcatenatingMediaSource()
+    private var fileList = listOf<String>()
+    private var currentWindowIndex = 0
+    private var playerControlListener: PlayerControlListener? = null
 
-    private var handler = Handler()
     private var seekForwardCount = 0
     private var seekBackwardCount = 0
     private var seekReady = true
@@ -59,12 +62,20 @@ class PlayerController(val context: Context, val TAG: String)
     private val audioNoisyIntentFilter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
     private val audioNoisyReceiver = AudioNoisyReceiver()
     private var audioNoisyReceiverRegistered = false
+    private var lastVolume = 1
 
+    private var handler = Handler()
+    private val updatePositionAction = Runnable { updatePosition() }
     private val processPendingSeekAction = Runnable { processPendingSeek() }
 
+    var pauseWhenZeroVolume = false
     var interactive = false
     var videoWidth = 0
     var videoHeight = 0
+
+    fun setPlayerControlListener(listener: PlayerControlListener) {
+        playerControlListener = listener
+    }
 
     fun getPlayer(): SimpleExoPlayer {
         return createPlayer()
@@ -85,15 +96,15 @@ class PlayerController(val context: Context, val TAG: String)
         return player
     }
 
-    fun release() {
-        unregisterAudioNoisyReceiver()
+    fun releasePlayer() {
         if (playerCreated) {
             player.playWhenReady = false
             player.removeListener(playerEventListener)
             player.removeVideoListener(playerVideoListener)
             player.release()
+            playerCreated = false
         }
-        playerCreated = false
+        unregisterAudioNoisyReceiver()
     }
 
     fun startPlayer(fileItem: FileItem): Boolean {
@@ -101,22 +112,12 @@ class PlayerController(val context: Context, val TAG: String)
         val canStart = requestAudioFocusGranted()
         if (canStart) {
             playerActive = true
-            currentFileItem = fileItem
-
-            val broadcastIntent = Intent()
-            broadcastIntent.putExtra(PlayerService.PARAM_MEDIA_ID, currentFileItem.url)
-            localBroadcast("onStartPlayer", broadcastIntent)
-
-            val mediaSource = buildMediaSource(currentFileItem.url)
+            setCurrentContent(fileItem)
+            val mediaSource = buildMediaSource(repository.getCurrentContentUrl())
             player.prepare(mediaSource, true, false)
-            var startPosition = calculateStartPosition(currentFileItem)
-            if (currentFileItem.finished || currentFileItem.error) {
-                currentFileItem.copy().apply {
-                    position = startPosition
-                    error = false
-                    finished = false
-                    repository.update(this)
-                }
+            var startPosition = calculateStartPosition(fileItem)
+            if (fileItem.finished || fileItem.error) {
+                updateFileItem(fileItem, position = startPosition, error = 0, finished = 0)
             }
             seekTo(startPosition)
             resumePlayer()
@@ -125,42 +126,60 @@ class PlayerController(val context: Context, val TAG: String)
         return canStart
     }
 
-    fun playNext() {
-
-    }
-
-    fun playPrevious() {
-    }
-
     private fun buildMediaSource(url: String): MediaSource {
         Logger.enter(TAG, "buildMediaSource() starting url = $url")
+        currentWindowIndex = 0
         playlist.clear()
-
+        fileList = repository.currentFileItems?.value?.let { it.map { it.url } } ?: listOf()
+        val index = fileList.indexOf(url)
+        if (index < 0) {
+            fileList = listOf(url)
+        }
+        else if (index > 0) {
+            fileList = fileList.subList(index, fileList.size).plus(fileList.subList(0, index))
+        }
         val dataSourceFactory = DefaultDataSourceFactory(context, Util.getUserAgent(context, context.resources.getString(R.string.app_name)));
         val mediaFactory = ExtractorMediaSource.Factory(dataSourceFactory)
-        mediaFactory.setTag(url)
-        val mediaSource = mediaFactory.createMediaSource(Uri.parse(url))
-        playlist.addMediaSource(mediaSource)
-
-//        val index = mFileList.indexOf(url)
-//        if (index > 0) {
-//            mFileList = mFileList.subList(index, mFileList.size).plus(mFileList.subList(0, index))
-//        }
-//        mSortedFileList = DataStore.sortFileList(mFileList, SelectedFolderOptions.OPTIONS_SORT_BY_NAME)
-//        mFileList.forEach {
-//            Logger.v(TAG, "buildMediaSource() url = $it")
-//            var mediaSource: MediaSource = mediaFactory.createMediaSource(Uri.parse(it))
-//            playlist.addMediaSource(mediaSource)
-//        }
-//        mCurrentWindowIndex = 0
+        playlist.addMediaSources( fileList.map {mediaFactory.createMediaSource(Uri.parse(it)) })
         Logger.exit(TAG, "buildMediaSource() playlist.size = ${playlist.size}")
         return playlist
     }
 
+    fun setCurrentContent(fileItem: FileItem) {
+        repository.setCurrentFileName(fileItem.name)
+        repository.setCurrentContentUrl(fileItem.url)
+        videoWidth = 0
+        videoHeight = 0
+        localBroadcast("onStartPlayer", Intent())
+    }
+
+    private fun updateFileItem(fileItem: FileItem? = null, position: Long = C.TIME_UNSET, finished: Int = -1, error: Int = -1) {
+        if (playerActive) {
+            (fileItem ?: repository.getCurrentFileItem()).copy().apply {
+                this.position = if (position == C.TIME_UNSET) getCurrentPosition() else position
+                if (finished != -1) {
+                    this.finished = finished == 1
+                }
+                if (error != -1) {
+                    this.error = error == 1
+                }
+                repository.update(this)
+            }
+        }
+    }
+
     fun seekTo(position: Long) {
+        seekReady = false
         player.seekTo(position)
         localBroadcastPlaybackState(PlaybackStateCompat.STATE_PLAYING)
     }
+
+    fun seekTo(windowIndex: Int, position: Long) {
+        seekReady = false
+        currentWindowIndex = windowIndex
+        player.seekTo(windowIndex, position)
+        localBroadcastPlaybackState(PlaybackStateCompat.STATE_PLAYING)
+   }
 
     fun seekForward(offset: Int = SEEK_FORWARD_OFFSET) {
         if (playerActive) {
@@ -180,20 +199,17 @@ class PlayerController(val context: Context, val TAG: String)
                     var newPosition = currentPosition
                     if (nearEnding(newPosition, duration)) {
                         // mark this file as finished
-    //                    val fileItem = DataStore.getFileItem(mUrl)
-    //                    fileItem.position = currentPosition
-    //                    fileItem.finished = true
-
+                        updateFileItem(position = 0L, finished = 1)
                         // if already near the end, then skip to the next track
-    //                    if (seekRepeat && TimeProfile.nightTimeInteractiveRequired() && !interactive) {
-    //                        pause()
-    //                        mPlayerControlListener?.onPlayerStopped()
-    //                        Logger.v(TAG, "seekForward() finished because not interactive")
-    //                    }
-    //                    else {
-    //                        playNext()
-    //                        Logger.v(TAG, "seekForward() playNext")
-    //                    }
+//                        if (seekRepeat && TimeProfile.nightTimeInteractiveRequired() && !interactive) {
+//                            pausePlayer()
+//                            playerControlListener?.onPlayerStopped()
+//                            Logger.v(TAG, "seekForward() finished because not interactive")
+//                        }
+//                        else {
+                            playNext()
+                            Logger.v(TAG, "seekForward() playNext")
+//                        }
                     }
                     else {
                         newPosition += offset
@@ -273,8 +289,43 @@ class PlayerController(val context: Context, val TAG: String)
         Logger.exit(TAG, "schedulePendingSeek()")
     }
 
+    private fun updatePosition() {
+        handler.removeCallbacks(updatePositionAction)
+        if (playerCreated) {
+            val currentPosition = player.currentPosition
+            if (currentPosition != C.TIME_UNSET) {
+//                synchronizeAudio()
+                val fileItem = repository.getCurrentFileItem()
+                if (fileItem.duration > 0 && currentPosition + IS_ENDING > fileItem.duration) {
+//                    if (TimeProfile.nightTimeInteractiveRequired() && !interactive) {
+////                        Logger.v(TAG, "updatePosition() finished because not interactive")
+//                        pausePlayer()
+//                        playerControlListener?.onPlayerStopped()
+//                    }
+//                    else {
+//                        Logger.v(TAG, "updatePosition() playNext")
+                        if (!fileItem.finished) {
+                            updateFileItem(fileItem, position = 0, finished = 1)
+                            playNext()
+                        }
+                    }
+//                }
+            }
+            if (pauseWhenZeroVolume) {
+                val volume = getAudioManager().getStreamVolume(AudioManager.STREAM_MUSIC)
+                if (volume == 0 && lastVolume != volume && isPlaying()) {
+                    pausePlayer()
+                }
+                lastVolume = volume
+            }
+
+            // Cancel any pending updates and schedule a new one if necessary.
+            handler.postDelayed(updatePositionAction, UPDATE_POSITION_INTERVAL)
+        }
+    }
+
     private fun processPendingSeek() {
-        Logger.enter(TAG, "processPendingSeek() seekReady = $seekReady, mSeekForwardCount = $seekForwardCount, mSeekBackwardCount = $seekBackwardCount")
+        Logger.enter(TAG, "processPendingSeek() seekReady = $seekReady, seekForwardCount = $seekForwardCount, seekBackwardCount = $seekBackwardCount")
         seekReady = true
         seekRepeating = true
         if (seekForwardCount > 0) {
@@ -290,7 +341,7 @@ class PlayerController(val context: Context, val TAG: String)
             seekBackward()
         }
         seekRepeating = false
-        Logger.exit(TAG, "processPendingSeek() seekReady = $seekReady, mSeekForwardCount = $seekForwardCount, mSeekBackwardCount = $seekBackwardCount")
+        Logger.exit(TAG, "processPendingSeek() seekReady = $seekReady, seekForwardCount = $seekForwardCount, seekBackwardCount = $seekBackwardCount")
     }
 
     fun cancelPendingSeek() {
@@ -298,6 +349,87 @@ class PlayerController(val context: Context, val TAG: String)
         seekForwardCount = 0
         seekBackwardCount = 0
         seekRepeat = false
+    }
+
+    fun playPrevious(markedAsFinished: Boolean = false) {
+        Logger.enter(TAG, "playPrevious() mCurrentWindowIndex = $currentWindowIndex, mFileList.size = ${fileList.size}")
+        var exitMessage = "playPrevious()"
+        var done = false
+        var count = 0
+        var newWindowIndex = currentWindowIndex
+        updateFileItem(finished = if (markedAsFinished) 1 else -1)
+        while (!done) {
+            newWindowIndex = if (newWindowIndex == 0) (fileList.size - 1) else (newWindowIndex - 1)
+            if (++count == fileList.size) {
+                pausePlayer()
+                playerControlListener?.onPlayerStopped()
+                done = true
+                exitMessage = "playPrevious() finished because playlist ended"
+            }
+            else {
+                val url = fileList[newWindowIndex]
+                val fileItem = repository.getFileItem(url)
+                if (fileItem.deleted) {
+                    // skip deleted file
+                }
+                else {
+                    val startPosition = calculateStartPosition(fileItem)
+                    setCurrentContent(fileItem)
+                    seekTo(newWindowIndex, startPosition)
+                    done = true
+                    exitMessage = "playPrevious() newWindowIndex = $newWindowIndex, startPosition = $startPosition, url = $url"
+                }
+            }
+        }
+        Logger.exit(TAG, exitMessage)
+    }
+
+    fun playNext(recreatePlayer: Boolean = false, markedAsFinished: Boolean = false) {
+        Logger.enter(TAG, "playNext() recreatePlayer = $recreatePlayer, currentWindowIndex = $currentWindowIndex, fileList.size = ${fileList.size}")
+        var exitMessage = "playNext()"
+        var done = false
+        var count = 0
+        var newWindowIndex = currentWindowIndex
+        updateFileItem(finished = if (markedAsFinished) 1 else -1)
+        while (!done) {
+            newWindowIndex = if (newWindowIndex >= fileList.size - 1) 0 else (newWindowIndex + 1)
+            if (++count == fileList.size || fileList.isEmpty()) {
+                pausePlayer()
+                playerControlListener?.onPlayerStopped()
+                done = true
+                exitMessage = "playNext() finished because playlist ended"
+            }
+            else {
+                val url = fileList[newWindowIndex]
+                val fileItem = repository.getFileItem(url)
+                if (fileItem.deleted || fileItem.finished) {
+                    // skip deleted file or finished file
+                }
+                else {
+                    if (recreatePlayer) {
+                        Logger.v(TAG, "playNext() releasePlayer")
+                        releasePlayer()
+                        Logger.v(TAG, "playNext() createPlayer")
+                        createPlayer()
+                        Logger.v(TAG, "playNext() setUrl")
+                        startPlayer(fileItem)
+                        Logger.v(TAG, "playNext() preparePlayer")
+                        Logger.v(TAG, "playNext() resume")
+                        resumePlayer()
+                        done = true
+                        exitMessage = "playNext() recreatePlayer = $recreatePlayer, url = $url"
+                    }
+                    else {
+                        val startPosition = calculateStartPosition(fileItem)
+                        setCurrentContent(fileItem)
+                        seekTo(newWindowIndex, startPosition)
+                        done = true
+                        exitMessage = "playNext() newWindowIndex = $newWindowIndex, startPosition = $startPosition, url = $url"
+                    }
+                }
+            }
+        }
+        Logger.exit(TAG, exitMessage)
     }
 
     fun togglePausePlayer(): Boolean {
@@ -319,6 +451,7 @@ class PlayerController(val context: Context, val TAG: String)
 
     fun pausePlayer() {
         if (playerActive) {
+            updateFileItem()
             player.playWhenReady = false
             abandonAudioFocusRequest()
             localBroadcastPlaybackState()
@@ -327,10 +460,7 @@ class PlayerController(val context: Context, val TAG: String)
 
     fun stopPlayer() {
         if (playerActive) {
-            currentFileItem.copy().apply {
-                position = getCurrentPosition()
-                repository.update(this)
-            }
+            updateFileItem()
             cancelSeekRepeat()
             cancelPendingSeek()
             player.playWhenReady = false
@@ -383,7 +513,7 @@ class PlayerController(val context: Context, val TAG: String)
 
     fun calculateSeekPosition(swipeDistance: Float, swipeVelocity: Float): Long {
         Logger.enter(TAG, "calculateSeekPosition() swipeDistance = $swipeDistance, swipeVelocity = $swipeVelocity")
-        val fileItem = currentFileItem
+        val fileItem = repository.getCurrentFileItem()
         var position = fileItem.position
         val duration = fileItem.duration
         var direction = Math.signum(swipeDistance)
@@ -399,7 +529,7 @@ class PlayerController(val context: Context, val TAG: String)
             velocityFactor = swipeVelocity / 1000.0f
         }
         val seconds = secondsInPixels * (distance / pixelsDistance) * Math.abs(velocityFactor)
-        position += (direction * seconds * 1000f).toInt()
+        position += (direction * seconds * 1000f).toLong()
         if (position >= duration) {
             position = duration - NEAR_ENDING
         }
@@ -427,18 +557,21 @@ class PlayerController(val context: Context, val TAG: String)
         }
     }
 
+    private fun getAudioManager(): AudioManager {
+        return context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
+
     private fun requestAudioFocusGranted(): Boolean {
         return requestAudioFocus(this, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
     }
 
     private fun abandonAudioFocusRequest() {
         Logger.enter(TAG, "abandonAudioFocusRequest()")
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         if (TAG.startsWith("PS")) {
             Logger.v(TAG, "abandonAudioFocusRequest()")
         }
         audioFocusRequest?.let {
-            audioManager.abandonAudioFocusRequest(it)
+            getAudioManager().abandonAudioFocusRequest(it)
         }
         audioFocusRequest = null
         Logger.exit(TAG, "abandonAudioFocusRequest()")
@@ -527,11 +660,22 @@ class PlayerController(val context: Context, val TAG: String)
         }
 
         override fun onTracksChanged(trackGroups: TrackGroupArray?, trackSelections: TrackSelectionArray?) {
+            Logger.v(TAG, "onTracksChanged() currentWindowIndex = ${player.currentWindowIndex}, position = ${getCurrentPosition()}, duration = ${getDuration()}" )
             super.onTracksChanged(trackGroups, trackSelections)
         }
 
         override fun onPlayerError(error: ExoPlaybackException?) {
             super.onPlayerError(error)
+
+            // advance the position to avoid getting stuck in the same place
+            // when trying to play it again
+            var newPosition = getCurrentPosition() + PLAYER_ERROR_POSITION_ADJUSTMENT
+            when (nearEnding(newPosition, getDuration())) {
+                true -> updateFileItem(error = 1, finished = 1)
+                false -> updateFileItem(error = 1, position = newPosition)
+            }
+
+            playNext(recreatePlayer = true)
         }
 
         override fun onLoadingChanged(isLoading: Boolean) {
@@ -539,6 +683,7 @@ class PlayerController(val context: Context, val TAG: String)
         }
 
         override fun onPositionDiscontinuity(reason: Int) {
+            Logger.v(TAG, "onPositionDiscontinuity() currentWindowIndex = ${player.currentWindowIndex}, reason = $reason, position = ${getCurrentPosition()}, duration = ${getDuration()}" )
             super.onPositionDiscontinuity(reason)
         }
 
@@ -576,8 +721,9 @@ class PlayerController(val context: Context, val TAG: String)
     }
 
     fun pushToBackground() {
+        updateFileItem()
         val broadcastIntent = Intent()
-        broadcastIntent.putExtra(PlayerService.PARAM_MEDIA_ID, currentFileItem.url)
+        broadcastIntent.putExtra(PlayerService.PARAM_MEDIA_ID, repository.getCurrentContentUrl())
         localBroadcast("onPushToBackground", broadcastIntent)
     }
 
@@ -589,5 +735,14 @@ class PlayerController(val context: Context, val TAG: String)
     fun stopBackgroundService() {
         val broadcastIntent = Intent()
         localBroadcast("onStopBackgroundService", broadcastIntent)
+    }
+
+    interface PlayerControlListener {
+//        fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int)
+        fun onPlayerStopped()
+//        fun onPlayerError(e: ExoPlaybackException?)
+//        fun onPlayerPositionDiscontinuity()
+//        fun onPlayerAudioFocusChanged(focusChange: Int)
+//        fun onPlayerStatus(status: String)
     }
 }

@@ -151,7 +151,7 @@
                     android:shadowRadius="@integer/info_shadow_radius"
                     android:shadowDx="@integer/info_shadow_dx"
                     android:shadowDy="@integer/info_shadow_dy"
-                    android:text="@{viewModel.playerInfoFile}"
+                    android:text="@{repository.currentFileName}"
                     android:visibility="@{viewModel.playerInfoVisibility}"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintStart_toStartOf="parent"/>

@@ -42,8 +42,6 @@ class PlayerService : MediaBrowserServiceCompat() {
     private var localBroadcastReceiver: BroadcastReceiver? = null
     private var mediaPlaybackState = PlaybackStateCompat.STATE_NONE
     private var foregroundServiceStarted = false
-    private var currentContentUrl = ""
-    private var currentContentTitle = ""
 
     override fun onCreate() {
         super.onCreate()
@@ -52,11 +50,17 @@ class PlayerService : MediaBrowserServiceCompat() {
         createMediaSession()
         createPlayer()
         registerLocalBroadcastReceiver()
+
+        playerController.setPlayerControlListener(object: PlayerController.PlayerControlListener {
+            override fun onPlayerStopped() {
+                stopForegroundService()
+            }
+        })
+
     }
 
     override fun onDestroy() {
-        releasePlayer()
-        playerController.release()
+        playerController.releasePlayer()
         unregisterLocalBroadcastReceiver()
     }
 
@@ -178,7 +182,7 @@ class PlayerService : MediaBrowserServiceCompat() {
 
 //                            Toast.makeText(context, "PS  $playbackState", Toast.LENGTH_LONG).show()
                             when (callbackName) {
-                                "onStartPlayer" -> setPlayerInfo(mediaId)
+                                "onStartPlayer" -> {}
                                 "onPlaybackState" -> setMediaPlaybackState(playbackState, position)
                                 "onPushToBackground" -> pushToBackground(mediaId)
                                 "onStopBackgroundPlayer" -> playerController.stopPlayer()
@@ -218,7 +222,7 @@ class PlayerService : MediaBrowserServiceCompat() {
             val notification = buildNotification(mediaPlaybackState, CHANNEL_PLAYER_SERVICE, position)
             notificationManager.notify(PLAYER_SERVICE_NOTIFICATION_ID, notification)
 
-            val fileItem = repository.getFileItem(currentContentUrl)
+            val fileItem = repository.getFileItem(repository.getCurrentContentUrl())
             val fileItems = repository.getCurrentFileItems().value ?: listOf()
             val index = fileItems.indexOf(fileItem)
             val trackNumber = if (index >= 0) index + 1 else 1
@@ -254,13 +258,7 @@ class PlayerService : MediaBrowserServiceCompat() {
         return name
     }
 
-    private fun setPlayerInfo(url: String) {
-        currentContentUrl = url
-        currentContentTitle = urlDecodedName(url)
-    }
-
     private fun pushToBackground(url: String) {
-        setPlayerInfo(url)
         startPlayer(url)
     }
 
@@ -276,7 +274,7 @@ class PlayerService : MediaBrowserServiceCompat() {
         val intent = Intent(this, MainActivity::class.java)
         intent.action = Intent.ACTION_VIEW
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        intent.putExtra(PARAM_MEDIA_ID, currentContentUrl)
+        intent.putExtra(PARAM_MEDIA_ID, repository.getCurrentContentUrl())
         val pendingIntent = PendingIntent.getActivity(this, REQUEST_LAUNCH_APP, intent, PendingIntent.FLAG_UPDATE_CURRENT)
 
         if (state == PlaybackStateCompat.STATE_NONE || state == PlaybackStateCompat.STATE_STOPPED) {
@@ -314,7 +312,7 @@ class PlayerService : MediaBrowserServiceCompat() {
                 MediaButtonReceiver.buildMediaButtonPendingIntent(this, PlaybackStateCompat.ACTION_STOP))
 
             // Add the metadata for the currently playing track
-            builder.setContentTitle(currentContentTitle)
+            builder.setContentTitle(repository.getCurrentFileName())
                 // Enable launching the player by clicking the notification
                 .setContentIntent(pendingIntent)
 
@@ -429,12 +427,8 @@ class PlayerService : MediaBrowserServiceCompat() {
     private fun startPlayer(url: String) {
         val fileItem = repository.getFileItem((url))
         playerController.stopPlayer()
-        playerController.release()
+        playerController.releasePlayer()
         playerController.startPlayer(fileItem)
-    }
-
-    private fun releasePlayer() {
-        playerController.release()
     }
 
     private fun stopForegroundService() {

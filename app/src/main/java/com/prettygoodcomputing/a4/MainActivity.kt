@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.databinding.DataBindingUtil
+import android.graphics.Canvas
 import android.media.AudioManager
 import android.os.BatteryManager
 import android.os.Bundle
@@ -26,15 +27,14 @@ import android.support.v7.app.AppCompatActivity
 import android.support.v7.view.ActionMode
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.PopupMenu
+import android.support.v7.widget.RecyclerView
+import android.support.v7.widget.helper.ItemTouchHelper
 import android.util.DisplayMetrics
 import android.view.*
 import android.widget.SeekBar
 import android.widget.Toast
 import com.crashlytics.android.Crashlytics
 import com.google.android.exoplayer2.*
-import com.google.android.exoplayer2.source.TrackGroupArray
-import com.google.android.exoplayer2.trackselection.TrackSelectionArray
-import com.google.android.exoplayer2.video.VideoListener
 import com.prettygoodcomputing.a4.databinding.ActivityMainBinding
 import kotlinx.android.synthetic.main.activity_main.*
 import pub.devrel.easypermissions.EasyPermissions
@@ -57,6 +57,7 @@ class MainActivity : AppCompatActivity(),
     private val SWIPE_MIN_DISTANCE_DP = 48
     private val SWIPE_THRESHOLD_VELOCITY_DP = 36
     private val SWIPE_PLAY_NEXT_DISTANCE = 64
+    private val RECYCLER_VIEW_SWIPE_VELOCITY = 4000
     private val UPDATE_INFO_SHOW_TIME = 5000L
     private val UPDATE_CONTROLS_SHOW_TIME = 30000L
     private val VOLUME_BAR_SHOW_TIME = 5000L
@@ -89,6 +90,8 @@ class MainActivity : AppCompatActivity(),
 
     private val playerController by lazy { PlayerController(context, "MA.PlayerController") }
     private val playerSeekBarChangeListener = PlayerSeekBarChangeListener()
+    private var velocityTracker: VelocityTracker? = null
+    private var swipeDirection: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,9 +114,9 @@ class MainActivity : AppCompatActivity(),
 
     override fun onDestroy() {
         super.onDestroy()
+        playerController.releasePlayer()
         handler.removeCallbacks(updateClockAction);
         handler.removeCallbacks(updateProgressAction);
-        playerController.release()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -134,27 +137,6 @@ class MainActivity : AppCompatActivity(),
     private fun setUpRecyclerView() {
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.setHasFixedSize(true)
-
-        val recyclerViewGestureListener = object: GestureDetector.SimpleOnGestureListener() {
-
-            override fun onFling(e1: MotionEvent?, e2: MotionEvent?, velocityX: Float, velocityY: Float): Boolean {
-                val viewConfiguration = ViewConfiguration.get(this@MainActivity)
-                val flingVelocity = viewConfiguration.scaledMinimumFlingVelocity / 2
-                if (Math.abs(velocityX) > Math.abs(velocityY)) {
-                    if (velocityX > flingVelocity || velocityX < -flingVelocity) {
-                        viewModel.switchFolder(Math.signum(velocityX).toInt())
-                        return true
-                    }
-                }
-                return false
-            }
-        }
-
-        // setup a gesture detector for the recycler view to allow swipe left / right to switch folder
-        val recyclerViewGestureDetector = GestureDetectorCompat(context, recyclerViewGestureListener)
-        binding.recyclerView.setOnTouchListener { _, event ->
-            recyclerViewGestureDetector.onTouchEvent(event)
-        }
 
         // setup the content of the recycler view
         val fileItemAdapter = FileItemAdapter(this, viewModel)
@@ -181,6 +163,58 @@ class MainActivity : AppCompatActivity(),
                 }
             }
         })
+
+        // swipe left or right on the item will switch folder
+        val touchHandler = ItemTouchHelper(SwipeHandler(fileItemAdapter, 0, (ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT)))
+        touchHandler.attachToRecyclerView(recycler_view)
+
+        // swipe left or right on the blank area will also switch folder
+        binding.recyclerView.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    swipeDirection = 0
+                    // Reset the velocity tracker back to its initial state.
+                    velocityTracker?.clear()
+                    // If necessary retrieve a new VelocityTracker object to watch the
+                    // velocity of a motion.
+                    velocityTracker = velocityTracker ?: VelocityTracker.obtain()
+                    // Add a user's movement to the tracker.
+                    velocityTracker?.addMovement(event)
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (velocityTracker == null) {
+                        velocityTracker = VelocityTracker.obtain()
+                    }
+                    velocityTracker?.apply {
+                        val pointerId: Int = event.getPointerId(event.actionIndex)
+                        addMovement(event)
+                        // When you want to determine the velocity, call
+                        // computeCurrentVelocity(). Then call getXVelocity()
+                        // and getYVelocity() to retrieve the velocity for each pointer ID.
+                        computeCurrentVelocity(1000)
+                        // Log velocity of pixels per second
+                        // Best practice to use VelocityTrackerCompat where possible.
+                        val xVelocity = getXVelocity(pointerId)
+                        val yVelocity = getYVelocity(pointerId)
+                        swipeDirection = when (Math.abs(xVelocity) > RECYCLER_VIEW_SWIPE_VELOCITY && Math.abs(yVelocity) < RECYCLER_VIEW_SWIPE_VELOCITY / 2) {
+                            true -> -Math.signum(xVelocity).toInt()
+                            false -> 0
+                        }
+                        Logger.v(TAG, "ACTION_MOVE xVelocity = $xVelocity, yVelocity = $yVelocity, swipeDirection = $swipeDirection")
+                    }
+                }
+                MotionEvent.ACTION_UP -> {
+                    // Return a VelocityTracker object back to be re-used by others.
+                    velocityTracker?.recycle()
+                    velocityTracker = null
+                    if (swipeDirection != 0) {
+                        viewModel.switchFolder(swipeDirection)
+                    }
+                }
+            }
+            false
+        }
+
 
         repository.getCurrentFileItems().observe(this, Observer<List<FileItem>> {
             fileItemAdapter.submitList(it)
@@ -236,6 +270,11 @@ class MainActivity : AppCompatActivity(),
     override fun onStart() {
         super.onStart()
         playerController.stopBackgroundPlayer()
+        playerController.setPlayerControlListener(object: PlayerController.PlayerControlListener {
+            override fun onPlayerStopped() {
+                stopPlayer()
+            }
+        })
         registerLocalBroadcastReceiver()
     }
 
@@ -568,7 +607,6 @@ class MainActivity : AppCompatActivity(),
             binding.playerView.player = getPlayer()
             binding.mainLayout.visibility = View.GONE
             binding.playerViewLayout.visibility = View.VISIBLE
-            viewModel.setPlayerInfoFile(fileItem.name)
             showControls()
             updateAllInfo()
         }
@@ -607,7 +645,7 @@ class MainActivity : AppCompatActivity(),
             handler.removeCallbacks(updateClockAction);
             handler.removeCallbacks(updateProgressAction);
             playerController.stopPlayer()
-            playerController.release()
+            playerController.releasePlayer()
             binding.mainLayout.visibility = View.VISIBLE
             binding.playerViewLayout.visibility = View.GONE
         }
@@ -719,8 +757,12 @@ class MainActivity : AppCompatActivity(),
 
     private fun updateProgress() {
         handler.removeCallbacks(updateProgressAction);
-        viewModel.setPlayerInfoTime(Formatter.formatTime(playerController.getCurrentPosition()) + " " + Formatter.formatTime(playerController.getDuration()))
-        viewModel.setProgressBarInfo((playerController.getCurrentPosition() / 1000L).toInt(), (playerController.getDuration() / 1000L).toInt())
+        val position = playerController.getCurrentPosition()
+        val duration = playerController.getDuration()
+        if (duration > 0) {
+            viewModel.setPlayerInfoTime(Formatter.formatTime(position) + " " + Formatter.formatTime(duration))
+            viewModel.setProgressBarInfo((position / 1000L).toInt(), (duration / 1000L).toInt())
+        }
 
         val currentTime = SystemClock.elapsedRealtime()
         if (currentTime - updateInfoStartTime > UPDATE_INFO_SHOW_TIME) {
@@ -899,17 +941,15 @@ class MainActivity : AppCompatActivity(),
             else {
                 if (Math.abs(e1.y - e2.y) > swipeMinDistance && Math.abs(velocityY) > swipeThresholdVelocity) {
                     if (Math.abs(e1.x - e2.x) > playNextDistance) {
-                        if (e1.x > e2.x) {
-                            // swipe left then up / down, will mark the file as finished
-//                            fileItem.finished = true
-                        }
+                        // swipe left then up / down, will mark the file as finished
+                        val markedAsFinished = e1.x > e2.x
                         if (e1.y > e2.y) {
                             // swipe left / right then up
-                            playerController.playPrevious()
+                            playerController.playPrevious(markedAsFinished = markedAsFinished)
                         }
                         else {
                             // swipe left / right then down
-                            playerController.playNext()
+                            playerController.playNext(markedAsFinished = markedAsFinished)
                         }
                     }
                     else {
@@ -929,6 +969,47 @@ class MainActivity : AppCompatActivity(),
                 }
             }
             return true
+        }
+    }
+
+    private inner class SwipeHandler(val adapter: FileItemAdapter, dragDirs : Int, swipeDirs : Int): ItemTouchHelper.SimpleCallback(dragDirs, swipeDirs) {
+
+        override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean {
+            return false
+        }
+
+        override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+            when (direction) {
+                ItemTouchHelper.RIGHT -> viewModel.switchFolder(-1)
+                ItemTouchHelper.LEFT -> viewModel.switchFolder(1)
+            }
+        }
+
+        override fun onChildDraw(
+            c: Canvas,
+            recyclerView: RecyclerView,
+            viewHolder: RecyclerView.ViewHolder,
+            dX: Float,
+            dY: Float,
+            actionState: Int,
+            isCurrentlyActive: Boolean
+        ) {
+//            super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
+            Logger.v(TAG, "onChildDraw $dX $dY $actionState $viewHolder")
+            return
+        }
+
+        override fun onChildDrawOver(
+            c: Canvas,
+            recyclerView: RecyclerView,
+            viewHolder: RecyclerView.ViewHolder?,
+            dX: Float,
+            dY: Float,
+            actionState: Int,
+            isCurrentlyActive: Boolean
+        ) {
+//            super.onChildDrawOver(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
+            Logger.v(TAG, "onChildDrawOver $dX $dY $actionState $viewHolder")
         }
     }
 }
